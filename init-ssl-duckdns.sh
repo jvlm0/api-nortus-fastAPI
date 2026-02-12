@@ -8,7 +8,7 @@ set -e  # Parar em caso de erro
 
 # CONFIGURAÇÕES
 domain="apinortus.duckdns.org"
-email="seu-email@exemplo.com"  # ALTERE AQUI
+email="seu-email@example.com"  # ALTERE AQUI
 staging=0  # Mude para 1 para testar primeiro
 
 # ============================================
