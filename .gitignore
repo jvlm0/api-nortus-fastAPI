@@ -3,3 +3,5 @@ venv
 *.jpg
 todo.txt
 *_teste.*
+firebird_data
+.env
