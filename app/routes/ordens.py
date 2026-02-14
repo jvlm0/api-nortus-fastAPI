@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException, Depends
 from datetime import datetime
 from app.database import get_connection
-from app.schemas.ordem import OrdemCreate, OrdemResponse, OrdemUpdate
+from app.schemas.ordem import OrdemCreate, OrdemResponse, OrdemUpdate, OrdemResponsePaginated
 from typing import List
 from app.utils.auth import verificar_token
 from app.utils.db_utils import get_user_db
@@ -57,66 +57,103 @@ def inserir_ordem(ordem: OrdemCreate, token: dict = Depends(verificar_token)):
 
 
 
-@router.get("", response_model=List[OrdemResponse])
-def listar_ordens(token: dict = Depends(verificar_token)):
+@router.get("", response_model=OrdemResponsePaginated)
+def listar_ordens(page: int = Query(1, ge=1), 
+                  page_size: int = Query(10, ge=1, le=100),   
+                  token: dict = Depends(verificar_token)):
+    
+    
+
     usuario_id = token.get("sub")
     caminho_banco = get_user_db(int(usuario_id))
 
     conn = get_connection(caminho_banco)
     cursor = conn.cursor()
 
-    sql = """
-        SELECT ordem.cod_ordem,
-               ordem.status,
-               ordem.OBSORDEM,
-               cliente.cod_cliente,
-               pessoa.nome,
-               pessoa.telrel,
-               pessoa.cpfcnpj,
-               equipamento.cod_equipamento,
-               equipamento.descricao,
-               equipamento.placa,
-               equipamento.ano,
-               equipamento.kmatual
-        FROM ordem
-        LEFT JOIN cliente ON ordem.cod_cliente = cliente.cod_cliente
-        LEFT JOIN pessoa ON cliente.cod_pessoa = pessoa.cod_pessoa
-        LEFT JOIN equipamento ON ordem.cod_equipamento = equipamento.cod_equipamento
-        WHERE ordem.status = 'ABERTO'
-        ORDER BY ordem.dtabert DESC, ordem.hrabert DESC
-    """
+    
 
-    cursor.execute(sql)
-    rows = cursor.fetchall()
+    try:
 
-    resultado = []
+        inicio = (page - 1) * page_size + 1
+        fim = page * page_size
+        total = 0
 
-    for r in rows:
 
-        titulo = r[2].split(" - ")[0] if r[2] else None
-        descricao = r[2].split(" - ")[1] if r[2] and " - " in r[2] else None
+        sql_count = """
+            SELECT count(*)
+            FROM ordem
+            LEFT JOIN cliente ON ordem.cod_cliente = cliente.cod_cliente
+            LEFT JOIN pessoa ON cliente.cod_pessoa = pessoa.cod_pessoa
+            LEFT JOIN equipamento ON ordem.cod_equipamento = equipamento.cod_equipamento
+            WHERE ordem.status = 'ABERTO'
+        """
 
-        resultado.append({
-            "cod_ordem": r[0],
-            "status": r[1],
-            "titulo": titulo,
-            "descricao": descricao,
-            "cliente": {
-                "COD_PESSOA": r[3],
-                "nome": r[4],
-                "telefone": r[5],
-                "cpfcnpj": r[6]
-            },
-            "veiculo": {
-                "cod_veiculo": r[7],
-                "modelo": r[8],
-                "placa": r[9],
-                "ano": r[10],
-                "kmatual": r[11]
-            }
-        })
+        cursor.execute(sql_count)
+        total = cursor.fetchone()[0]
 
-    return resultado
+        
+
+        sql = f"""
+            SELECT ordem.cod_ordem,
+                   ordem.status,
+                   ordem.OBSORDEM,
+                   cliente.cod_cliente,
+                   pessoa.nome,
+                   pessoa.telrel,
+                   pessoa.cpfcnpj,
+                   equipamento.cod_equipamento,
+                   equipamento.descricao,
+                   equipamento.placa,
+                   equipamento.ano,
+                   equipamento.kmatual
+            FROM ordem
+            LEFT JOIN cliente ON ordem.cod_cliente = cliente.cod_cliente
+            LEFT JOIN pessoa ON cliente.cod_pessoa = pessoa.cod_pessoa
+            LEFT JOIN equipamento ON ordem.cod_equipamento = equipamento.cod_equipamento
+            WHERE ordem.status = 'ABERTO'
+            ORDER BY ordem.dtabert DESC, ordem.hrabert DESC
+            ROWS {inicio} TO {fim}
+        """
+
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+
+        ordens = []
+
+        for r in rows:
+
+            titulo = r[2].split(" - ")[0] if r[2] else None
+            descricao = r[2].split(" - ")[1] if r[2] and " - " in r[2] else None
+
+            ordens.append({
+                "cod_ordem": r[0],
+                "status": r[1],
+                "titulo": titulo,
+                "descricao": descricao,
+                "cliente": {
+                    "COD_PESSOA": r[3],
+                    "nome": r[4],
+                    "telefone": r[5],
+                    "cpfcnpj": r[6]
+                },
+                "veiculo": {
+                    "cod_veiculo": r[7],
+                    "modelo": r[8],
+                    "placa": r[9],
+                    "ano": r[10],
+                    "kmatual": r[11]
+                }
+            })
+        return {
+            "page": page,
+            "page_size": page_size,
+            "total_pages": (total + page_size - 1) // page_size,
+            "data": ordens
+        }
+    finally:
+        cursor.close()
+        conn.close()
+
 
 
 @router.patch("", status_code = 200) 

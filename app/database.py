@@ -12,11 +12,8 @@ def get_connection(caminhoBanco: str):
 
 def get_connection_app_users():
     # Dentro do Docker, use o nome do serviço
-    host = os.getenv("FIREBIRD_HOST", "firebird")
-    database = os.getenv("FIREBIRD_DATABASE", "APPUSERS.FDB")
-    
     return fdb.connect(
-        dsn=f"{host}:/firebird/data/{database}",
+        dsn=os.getenv("DSN"),
         user="SYSDBA",
         password="masterkey",
         charset="UTF8"

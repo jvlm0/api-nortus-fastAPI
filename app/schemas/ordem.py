@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from typing import List
 
 from app.schemas.cliente import ClienteResponse
 from app.schemas.veiculo import VeiculoResponse
@@ -27,3 +28,9 @@ class OrdemResponse(BaseModel):
     descricao: Optional[str] = None
     cliente: ClienteResponse
     veiculo: VeiculoResponse
+
+class OrdemResponsePaginated(BaseModel):
+    page: int
+    page_size: int
+    total_pages: int
+    data: List[OrdemResponse]
