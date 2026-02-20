@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Query, HTTPException, Depends
 from datetime import datetime
 from app.database import get_connection
-from app.schemas.ordem import OrdemCreate, OrdemResponse, OrdemUpdate, OrdemResponsePaginated
+from app.schemas.ordem import OrdemCreate, OrdemUpdate, OrdemResponsePaginated
 from typing import List
 from app.utils.auth import verificar_token
 from app.utils.db_utils import get_user_db
+from app.db_utils.servico_db import inserir_servicos
+from app.utils.ordem_calc import calculaTotal
 
 
 router = APIRouter(prefix="/ordens", tags=["Ordens de Serviço"])
@@ -30,15 +32,19 @@ def inserir_ordem(ordem: OrdemCreate, token: dict = Depends(verificar_token)):
 
     try:
 
-        
+        valorTotal, valorTotalServ = calculaTotal(ordem.servicos)
 
         sql = """
-            INSERT INTO ORDEM (COD_CLIENTE, COD_EQUIPAMENTO, DTABERT, HRABERT, OBSORDEM, STATUS, MONITOR, COD_LOJA)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO ORDEM (COD_CLIENTE, COD_EQUIPAMENTO, DTABERT, HRABERT, OBSORDEM, STATUS, MONITOR, COD_LOJA, TOTSERV, TOTORD)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING COD_ORDEM
         """
-        cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, data, hora, observacao, STATUS, MONITOR, COD_LOJA))
+        cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, data, hora, observacao, STATUS, MONITOR, COD_LOJA, valorTotalServ, valorTotal))
         cod_ordem = cursor.fetchone()[0]
+        
+        if (ordem.servicos != None):
+            inserir_servicos(cursor, ordem.servicos, cod_ordem)
+        
         conn.commit()
 
         return {

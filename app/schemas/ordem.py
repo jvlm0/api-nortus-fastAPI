@@ -5,12 +5,14 @@ from typing import List
 
 from app.schemas.cliente import ClienteResponse
 from app.schemas.veiculo import VeiculoResponse
+from app.schemas.servico import ServicoCreate
 
 class OrdemCreate(BaseModel):
     titulo: Optional[str] = None
     descricao: Optional[str] = None
     cod_veiculo: Optional[int] = None
     cod_cliente: Optional[int] = None
+    servicos: Optional[List[ServicoCreate]] = None
 
 
 class OrdemUpdate(BaseModel): 
