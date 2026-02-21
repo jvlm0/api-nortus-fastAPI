@@ -6,6 +6,7 @@ from typing import List
 from app.utils.auth import verificar_token
 from app.utils.db_utils import get_user_db
 from app.db_utils.servico_db import inserir_servicos
+from app.db_utils.produto_db import inserir_produtos
 from app.utils.ordem_calc import calculaTotal
 
 
@@ -44,6 +45,10 @@ def inserir_ordem(ordem: OrdemCreate, token: dict = Depends(verificar_token)):
         
         if (ordem.servicos != None):
             inserir_servicos(cursor, ordem.servicos, cod_ordem)
+        if ordem.produtos != None:
+            inserir_produtos(cursor, ordem.produtos, cod_ordem, data)
+
+
         
         conn.commit()
 

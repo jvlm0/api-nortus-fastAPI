@@ -8,6 +8,7 @@ from app.routes.users import router as users_router
 from app.routes.auth import router as auth_router
 from app.routes.vendedores import router as vendedores_router
 from app.routes.equipes import router as equipes_router
+from app.routes.produtos import router as produtos_router
 
 
 app = FastAPI()
@@ -27,3 +28,4 @@ app.include_router(users_router)
 app.include_router(auth_router)
 app.include_router(vendedores_router)
 app.include_router(equipes_router)
+app.include_router(produtos_router)
