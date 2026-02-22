@@ -1,5 +1,8 @@
-from app.schemas.servico import ServicoCreate
+from app.schemas.servico import ServicoCreate, ServicoResponse
+from app.schemas.equipe import EquipeResponsavel
 from typing import List
+
+from app.db_utils.vendedor_db import buscar_vendedores
 
 
 "VLRFINAL == valorunitario"
@@ -54,3 +57,47 @@ def inserir_servicos(cursor, servicos:List[ServicoCreate], cod_ordem: int ):
             cursor.execute(slq_comissao, (cod_serv, cod_vendedor, 
                                           porcentagem/len(serv.cods_vendedores), 
                                           'COMOSSERV'))
+            
+
+def buscar_servicos(cursor, cod_ordem):
+
+    sql = """
+        SELECT d.COD_DESPADIC,
+               d.DESPESA, 
+               d.QTD, 
+               d.VLRFINAL, 
+               d.DESCONTO, 
+               d.COD_EQUIPE, 
+               e.descricao FROM DESPADIC d
+                INNER JOIN EQUIPE e ON d.COD_EQUIPE = e.COD_EQUIPE 
+                WHERE d.COD_GERADOR = ?
+    """
+
+    cursor.execute(sql, (cod_ordem,))
+
+    rows =  cursor.fetchall()
+    services = List[ServicoResponse]
+    for r in rows:
+        serv = ServicoResponse(
+                             cod_servico=r[0],
+                             descricao=r[1],
+                             quantidade=r[2],
+                             valorUnitario=r[3],
+                             desconto=r[4]
+        )
+
+        equipe =  EquipeResponsavel(
+                                    cod_equipe=r[5],
+                                    nome=r[6]
+        )
+
+
+
+        serv.equipe = equipe
+
+        serv.vendedores = buscar_vendedores(cursor, serv.cod_servico)
+
+
+
+        
+

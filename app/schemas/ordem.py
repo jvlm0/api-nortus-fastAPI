@@ -32,7 +32,10 @@ class OrdemResponse(BaseModel):
     descricao: Optional[str] = None
     cliente: ClienteResponse
     veiculo: VeiculoResponse
+    servicos: Optional[List[ServicoCreate]] = None
+    produtos: Optional[List[ItemProdutoCreate]] = None
 
+    
 class OrdemResponsePaginated(BaseModel):
     page: int
     page_size: int

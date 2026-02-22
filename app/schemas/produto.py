@@ -24,6 +24,8 @@ class ProdutoResponse(BaseModel):
 
 class ItemProdutoResponse(BaseModel):
     cod_itemProduto: int
+    nome: str
+    marca: str
     quantidade: Decimal
     valorUnitario: Decimal
     desconto: Decimal

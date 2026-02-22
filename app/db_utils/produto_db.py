@@ -1,6 +1,8 @@
 from typing import List
 
-from app.schemas.produto import ItemProdutoCreate, ProdutoResponse
+from app.schemas.produto import ItemProdutoCreate, ItemProdutoResponse
+from app.schemas.equipe import Vendedor
+from app.db_utils.vendedor_db import buscar_vendedores
 
 from decimal import Decimal
 
@@ -91,5 +93,45 @@ def inserir_produtos(cursor, produtos: List[ItemProdutoCreate], cod_ordem: int, 
 
 
          
+def buscar_produtos(cursor, cod_ordem: int):
+
+
+
+    sql =  """
+        Select itprodord.cod_itprodord, 
+               subproduto.descricao, 
+               subproduto.marca 
+               itprodord.qtd, 
+               itprodord.desconto, 
+               itprodord.vlrunit
+               
+        From itprodord left Join estoque on itprodord.cod_estoque = estoque.cod_estoque 
+        Left Join subproduto on estoque.cod_subprod = subproduto.cod_subproduto 
+        Where itprodord.cod_ordem = ? 
+    """  
+
+    cursor.execute(sql, (cod_ordem,)) 
+     
+    rows = cursor.fetchall()
+    produtos = List[ItemProdutoResponse]
+    
+    for r in rows:
+
+        prod =  ItemProdutoResponse(
+                        cod_itemProduto= r[0],
+                        nome=r[1],
+                        marca=r[2],
+                        quantidade=r[3],
+                        desconto=r[4],
+                        valorUnitario=r[5])
+
+        
+        
+            
+        prod.vendedores = buscar_vendedores(cursor, prod.cod_itemProduto)
+        
+        produtos.append(prod)
+
+        return produtos
 
 

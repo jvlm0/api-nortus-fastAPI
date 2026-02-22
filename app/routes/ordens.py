@@ -1,13 +1,16 @@
 from fastapi import APIRouter, Query, HTTPException, Depends
 from datetime import datetime
 from app.database import get_connection
-from app.schemas.ordem import OrdemCreate, OrdemUpdate, OrdemResponsePaginated
+from app.schemas.ordem import OrdemCreate, OrdemUpdate, OrdemResponsePaginated, OrdemResponse
 from typing import List
 from app.utils.auth import verificar_token
 from app.utils.db_utils import get_user_db
-from app.db_utils.servico_db import inserir_servicos
-from app.db_utils.produto_db import inserir_produtos
+from app.db_utils.servico_db import inserir_servicos, buscar_servicos
+from app.db_utils.produto_db import inserir_produtos, buscar_produtos
 from app.utils.ordem_calc import calculaTotal
+from app.utils.ordem_utils import split_obs
+from app.schemas.cliente import ClienteResponse
+from app.schemas.veiculo import VeiculoResponse
 
 
 router = APIRouter(prefix="/ordens", tags=["Ordens de Serviço"])
@@ -133,8 +136,7 @@ def listar_ordens(page: int = Query(1, ge=1),
 
         for r in rows:
 
-            titulo = r[2].split(" - ")[0] if r[2] else None
-            descricao = r[2].split(" - ")[1] if r[2] and " - " in r[2] else None
+            titulo, descricao = split_obs(r[2])
 
             ordens.append({
                 "cod_ordem": r[0],
@@ -178,9 +180,6 @@ def update_ordem(ordem: OrdemUpdate, token: dict = Depends(verificar_token)):
     
     observacao = (ordem.titulo or "") + " - " + (ordem.descricao or "")
 
-    
-    
-
     try:
 
         
@@ -200,6 +199,58 @@ def update_ordem(ordem: OrdemUpdate, token: dict = Depends(verificar_token)):
         return {
             "status": "sucesso"
         }
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
+@router.get("/{id}")
+def get_ordem(cod_ordem, token: dict = Depends(verificar_token)):
+
+    usuario_id = token.get("sub")
+    caminho_banco = get_user_db(int(usuario_id))
+    conn = get_connection(caminho_banco)
+    cursor = conn.cursor()
+
+
+    try:
+        sql = """
+            SELECT ordem.cod_ordem,
+                   ordem.status,
+                   ordem.OBSORDEM,
+                   cliente.cod_cliente,
+                   pessoa.nome,
+                   pessoa.telrel,
+                   pessoa.cpfcnpj,
+                   equipamento.cod_equipamento,
+                   equipamento.descricao,
+                   equipamento.placa,
+                   equipamento.ano,
+                   equipamento.kmatual
+            FROM ordem
+            LEFT JOIN cliente ON ordem.cod_cliente = cliente.cod_cliente
+            LEFT JOIN pessoa ON cliente.cod_pessoa = pessoa.cod_pessoa
+            LEFT JOIN equipamento ON ordem.cod_equipamento = equipamento.cod_equipamento
+            WHERE ordem.cod_ordem = ?
+        """
+
+        cursor.execute(sql, (cod_ordem,))
+        r = cursor.fetchone()
+        
+        titulo, descricao = r[2]
+
+        cliente = ClienteResponse(COD_PESSOA=r[3], nome=r[4], telefone=r[5], cpfcnpj= r[6])
+
+        veiculo = VeiculoResponse(cod_veiculo= r[7], descricao = r[8], placa= r[9], ano= r[10], kmatual=r[11])
+
+        ordem = OrdemResponse(cod_ordem= r[0], status=r[1], titulo=titulo, descricao= descricao, cliente=cliente, veiculo=veiculo)
+
+        ordem.servicos = buscar_servicos(cursor, ordem.cod_ordem)
+        ordem.produtos = buscar_produtos(cursor, cod_ordem)
+
+        return ordem
 
     finally:
         cursor.close()

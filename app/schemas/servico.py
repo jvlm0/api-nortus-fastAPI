@@ -20,6 +20,7 @@ class ServicoCreate(BaseModel):
 
 
 class ServicoResponse(BaseModel):
+    cod_servico: int
     descricao: str
     quantidade: float
     valorUnitario: float
