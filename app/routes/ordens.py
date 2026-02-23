@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Query, HTTPException, Depends
 from datetime import datetime
+
+from fastapi.concurrency import run_in_threadpool
 from app.database import get_connection
+from app.repositories import ordem_repository
 from app.schemas.ordem import OrdemCreate, OrdemUpdate, OrdemResponsePaginated, OrdemResponse
 from typing import List
 from app.utils.auth import verificar_token
@@ -16,156 +19,52 @@ from app.schemas.veiculo import VeiculoResponse
 router = APIRouter(prefix="/ordens", tags=["Ordens de Serviço"])
 
 @router.post("", status_code=201)
-def inserir_ordem(ordem: OrdemCreate, token: dict = Depends(verificar_token)):
+async def inserir_ordem(ordem: OrdemCreate, token: dict = Depends(verificar_token)):
 
-    usuario_id = token.get("sub")
-    caminho_banco = get_user_db(int(usuario_id))
+    usuario_id = int(token.get("sub"))
     
-    conn = get_connection(caminho_banco)
+    dsn = await run_in_threadpool(
+        get_user_db,
+        usuario_id
+    )
 
-    cursor = conn.cursor()
+    cod_ordem = await run_in_threadpool(
+        ordem_repository.inserir_ordem,
+        dsn,
+        ordem
+    )
 
-    dt = datetime.now()
-
-    data = dt.strftime("%Y-%m-%d")
-    hora = dt.strftime("%H:%M:%S")
-    observacao = (ordem.titulo or "") + " - " + (ordem.descricao or "")
-    STATUS = "ABERTO"
-    MONITOR = "INICIADO"
-    COD_LOJA = 1 
-
-    try:
-
-        valorTotal, valorTotalServ = calculaTotal(ordem.servicos)
-
-        sql = """
-            INSERT INTO ORDEM (COD_CLIENTE, COD_EQUIPAMENTO, DTABERT, HRABERT, OBSORDEM, STATUS, MONITOR, COD_LOJA, TOTSERV, TOTORD)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            RETURNING COD_ORDEM
-        """
-        cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, data, hora, observacao, STATUS, MONITOR, COD_LOJA, valorTotalServ, valorTotal))
-        cod_ordem = cursor.fetchone()[0]
-        
-        if (ordem.servicos != None):
-            inserir_servicos(cursor, ordem.servicos, cod_ordem)
-        if ordem.produtos != None:
-            inserir_produtos(cursor, ordem.produtos, cod_ordem, data)
-
-
-        
-        conn.commit()
-
-        return {
-            "status": "sucesso",
-            "cod_ordem": cod_ordem
+    return {
+        "status": "sucesso",
+        "cod_ordem": cod_ordem
         }
-    
-    except Exception as e:
-        conn.rollback()
-        raise e
-
-    finally:
-        cursor.close()
-        conn.close()
 
 
 
 
 @router.get("", response_model=OrdemResponsePaginated)
-def listar_ordens(page: int = Query(1, ge=1), 
+async def listar_ordens(page: int = Query(1, ge=1), 
                   page_size: int = Query(10, ge=1, le=100),   
                   token: dict = Depends(verificar_token)):
     
     
 
-    usuario_id = token.get("sub")
-    caminho_banco = get_user_db(int(usuario_id))
+    usuario_id = int(token.get("sub"))
 
-    conn = get_connection(caminho_banco)
-    cursor = conn.cursor()
+    dsn = await run_in_threadpool(
+        get_user_db,
+        usuario_id
+    )
 
-    
+        # insere no banco do cliente (VPN)
+    ordens = await run_in_threadpool(
+        ordem_repository.listar_ordens,
+        dsn,
+        page,
+        page_size
+    )
 
-    try:
-
-        inicio = (page - 1) * page_size + 1
-        fim = page * page_size
-        total = 0
-
-
-        sql_count = """
-            SELECT count(*)
-            FROM ordem
-            LEFT JOIN cliente ON ordem.cod_cliente = cliente.cod_cliente
-            LEFT JOIN pessoa ON cliente.cod_pessoa = pessoa.cod_pessoa
-            LEFT JOIN equipamento ON ordem.cod_equipamento = equipamento.cod_equipamento
-            WHERE ordem.status = 'ABERTO'
-        """
-
-        cursor.execute(sql_count)
-        total = cursor.fetchone()[0]
-
-        
-
-        sql = f"""
-            SELECT ordem.cod_ordem,
-                   ordem.status,
-                   ordem.OBSORDEM,
-                   cliente.cod_cliente,
-                   pessoa.nome,
-                   pessoa.telrel,
-                   pessoa.cpfcnpj,
-                   equipamento.cod_equipamento,
-                   equipamento.descricao,
-                   equipamento.placa,
-                   equipamento.ano,
-                   equipamento.kmatual
-            FROM ordem
-            LEFT JOIN cliente ON ordem.cod_cliente = cliente.cod_cliente
-            LEFT JOIN pessoa ON cliente.cod_pessoa = pessoa.cod_pessoa
-            LEFT JOIN equipamento ON ordem.cod_equipamento = equipamento.cod_equipamento
-            WHERE ordem.status = 'ABERTO'
-            ORDER BY ordem.dtabert DESC, ordem.hrabert DESC
-            ROWS {inicio} TO {fim}
-        """
-
-        cursor.execute(sql)
-        rows = cursor.fetchall()
-
-        ordens = []
-
-        for r in rows:
-
-            titulo, descricao = split_obs(r[2])
-
-            ordens.append({
-                "cod_ordem": r[0],
-                "status": r[1],
-                "titulo": titulo,
-                "descricao": descricao,
-                "cliente": {
-                    "COD_PESSOA": r[3],
-                    "nome": r[4],
-                    "telefone": r[5],
-                    "cpfcnpj": r[6]
-                },
-                "veiculo": {
-                    "cod_veiculo": r[7],
-                    "modelo": r[8],
-                    "placa": r[9],
-                    "ano": r[10],
-                    "kmatual": r[11]
-                }
-            })
-        return {
-            "page": page,
-            "page_size": page_size,
-            "total_pages": (total + page_size - 1) // page_size,
-            "data": ordens
-        }
-    finally:
-        cursor.close()
-        conn.close()
+    return ordens
 
 
 
