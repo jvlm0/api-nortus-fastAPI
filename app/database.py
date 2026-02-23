@@ -69,12 +69,10 @@ class PooledConnection:
 
     def __exit__(self, exc_type, exc, tb):
         if exc_type is not None:
-            # Tenta rollback; se falhar, a conexão está morta
             try:
                 self.conn.rollback()
                 self.pool.release(self.conn)
             except Exception:
-                # Descarta a conexão morta e repõe uma nova no pool
                 with self.pool._lock:
                     self.pool._created -= 1
                 try:
@@ -83,8 +81,13 @@ class PooledConnection:
                         self.pool._created += 1
                     self.pool.release(new_conn)
                 except Exception:
-                    pass  # pool fica temporariamente menor, sem travar
+                    pass
         else:
+            try:
+                # garante que não há transação pendente antes de devolver
+                self.conn.commit()
+            except Exception:
+                pass
             self.pool.release(self.conn)
 
 

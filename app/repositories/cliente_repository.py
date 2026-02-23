@@ -105,7 +105,6 @@ def inserir_cliente(dsn: str, cliente):
             cursor.execute(sql2, (cod_pessoa, datetime.now().date()))
             cod_cliente = cursor.fetchone()[0]
 
-            conn.commit()
 
             return cod_cliente
             

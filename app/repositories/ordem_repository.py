@@ -43,7 +43,6 @@ def inserir_ordem(dsn: str, ordem):
 
 
 
-            conn.commit()
 
             return cod_ordem
 
@@ -172,7 +171,7 @@ def update_ordem(dsn: str, ordem):
             if ordem.produtosRemovidos != None:
                 deletar_produtos(cursor, ordem.produtosRemovidos)
             
-            conn.commit()
+            
     
             
     

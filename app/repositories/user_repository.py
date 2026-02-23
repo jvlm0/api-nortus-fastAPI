@@ -26,7 +26,6 @@ def criar_usuario(usuario):
             )
 
             user_id = cursor.fetchone()[0]
-            conn.commit()
 
             return {
                 "id": user_id,

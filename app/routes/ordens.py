@@ -56,27 +56,19 @@ async def listar_ordens(page: int = Query(1, ge=1),
 
 
 
-@router.patch("", status_code = 200) 
+@router.patch("", status_code=200)
 async def update_ordem(ordem: OrdemUpdate, token: dict = Depends(verificar_token)):
 
     usuario_id = int(token.get("sub"))
-    
-    dsn = await run_in_threadpool(
-        get_user_db,
-        usuario_id
+    dsn = await run_in_threadpool(get_user_db, usuario_id)
+
+    await run_in_threadpool(ordem_repository.update_ordem, dsn, ordem)
+
+    ordem_atualizada = await run_in_threadpool(
+        ordem_repository.get_ordem, dsn, ordem.cod_ordem
     )
 
-    result = await run_in_threadpool(
-        ordem_repository.update_ordem,
-        dsn,
-        ordem
-    )
-
-    if result:
-        return {
-            "status": "sucesso"
-        }
-
+    return ordem_atualizada
 
 
 @router.get("/{cod_ordem}", response_model=OrdemResponse)

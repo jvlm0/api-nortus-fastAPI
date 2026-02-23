@@ -49,7 +49,6 @@ def atualizar_veiculo(dsn: str, veiculo: VeiculoUpdate):
             """
             cursor.execute(sql, (veiculo.modelo, veiculo.ano, veiculo.kmatual, veiculo.cod_veiculo))
             resultado = cursor.fetchone()
-            conn.commit()
 
             if not resultado:
                 raise HTTPException(status_code=404, detail="Veículo não encontrado")
