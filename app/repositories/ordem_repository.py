@@ -1,7 +1,12 @@
+from fastapi import HTTPException
 from app.database import get_client_pool
-from app.db_utils.produto_db import inserir_produtos
-from app.db_utils.servico_db import inserir_servicos
+from app.db_utils.produto_db import buscar_produtos, deletar_produtos, inserir_produtos
+from app.db_utils.servico_db import buscar_servicos, inserir_servicos, deletar_servicos
 from datetime import datetime
+from app.schemas.cliente import ClienteResponse
+from app.schemas.ordem import OrdemResponse
+from app.schemas.ordem import OrdemResponse
+from app.schemas.veiculo import VeiculoResponse
 from app.utils.ordem_calc import calculaTotal
 from app.utils.ordem_utils import split_obs
 
@@ -133,3 +138,101 @@ def listar_ordens(dsn: str, page: int, page_size: int):
             }
         finally:
             cursor.close()
+
+def update_ordem(dsn: str, ordem):
+
+    with get_client_pool(dsn).connection() as conn:
+        cursor = conn.cursor()
+
+        observacao = (ordem.titulo or "") + " - " + (ordem.descricao or "")
+    
+        try:
+        
+            
+            sql = """
+                UPDATE ordem set cod_cliente = ?, cod_equipamento = ?, OBSORDEM = ?
+                WHERE COD_ORDEM = ?
+                RETURNING cod_ordem;
+            """
+            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, observacao, ordem.cod_ordem))
+    
+            resultado = cursor.fetchone()[0]
+    
+            if not resultado:
+                raise HTTPException(status_code=404, detail="Ordem não encontrada")
+            
+            if ordem.servicos != None:
+                inserir_servicos(cursor, ordem.servicos, ordem.cod_ordem)
+            if ordem.produtos != None:
+                inserir_produtos(cursor, ordem.produtos, ordem.cod_ordem, datetime.now().strftime("%Y-%m-%d"))
+            
+            if ordem.servicosRemovidos != None:
+                deletar_servicos(cursor, ordem.servicosRemovidos)
+            
+            if ordem.produtosRemovidos != None:
+                deletar_produtos(cursor, ordem.produtosRemovidos)
+            
+            conn.commit()
+    
+            
+    
+            return True
+    
+        finally:
+            cursor.close()
+
+
+def get_ordem(dsn, cod_ordem: int):
+    
+    with get_client_pool(dsn).connection() as conn:    
+        cursor = conn.cursor()
+            
+        try:
+            sql = """
+                SELECT ordem.cod_ordem,
+                       ordem.status,
+                       ordem.OBSORDEM,
+                       cliente.cod_cliente,
+                       pessoa.nome,
+                       pessoa.telrel,
+                       pessoa.cpfcnpj,
+                       equipamento.cod_equipamento,
+                       equipamento.descricao,
+                       equipamento.placa,
+                       equipamento.ano,
+                       equipamento.kmatual
+                FROM ordem
+                LEFT JOIN cliente ON ordem.cod_cliente = cliente.cod_cliente
+                LEFT JOIN pessoa ON cliente.cod_pessoa = pessoa.cod_pessoa
+                LEFT JOIN equipamento ON ordem.cod_equipamento = equipamento.cod_equipamento
+                WHERE ordem.cod_ordem = ?
+            """
+    
+            cursor.execute(sql, (cod_ordem,))
+            r = cursor.fetchone()
+            
+            titulo, descricao = r[2]
+    
+            cliente = ClienteResponse(COD_PESSOA=r[3], nome=r[4], telefone=r[5], cpfcnpj= r[6])
+    
+            veiculo = VeiculoResponse(cod_veiculo= r[7], 
+                                      descricao = r[8], 
+                                      placa= r[9], 
+                                      ano= r[10], 
+                                      kmatual=r[11])
+    
+            ordem = OrdemResponse(cod_ordem= r[0], 
+                                  status=r[1], 
+                                  titulo=titulo, 
+                                  descricao= descricao, 
+                                  cliente=cliente, 
+                                  veiculo=veiculo)
+    
+            ordem.servicos = buscar_servicos(cursor, ordem.cod_ordem)
+            ordem.produtos = buscar_produtos(cursor, cod_ordem)
+    
+            return ordem
+    
+        finally:
+            cursor.close()
+    
