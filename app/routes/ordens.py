@@ -5,8 +5,8 @@ from app.schemas.ordem import OrdemCreate, OrdemUpdate, OrdemResponsePaginated, 
 from typing import List
 from app.utils.auth import verificar_token
 from app.utils.db_utils import get_user_db
-from app.db_utils.servico_db import inserir_servicos, buscar_servicos
-from app.db_utils.produto_db import inserir_produtos, buscar_produtos
+from app.db_utils.servico_db import inserir_servicos, buscar_servicos, deletar_servicos
+from app.db_utils.produto_db import inserir_produtos, buscar_produtos, deletar_produtos
 from app.utils.ordem_calc import calculaTotal
 from app.utils.ordem_utils import split_obs
 from app.schemas.cliente import ClienteResponse
@@ -191,10 +191,24 @@ def update_ordem(ordem: OrdemUpdate, token: dict = Depends(verificar_token)):
         cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, observacao, ordem.cod_ordem))
 
         resultado = cursor.fetchone()[0]
-        conn.commit()
 
         if not resultado:
             raise HTTPException(status_code=404, detail="Ordem não encontrada")
+        
+        if ordem.servicos != None:
+            inserir_servicos(cursor, ordem.servicos, ordem.cod_ordem)
+        if ordem.produtos != None:
+            inserir_produtos(cursor, ordem.produtos, ordem.cod_ordem, datetime.now().strftime("%Y-%m-%d"))
+        
+        if ordem.servicosRemovidos != None:
+            deletar_servicos(cursor, ordem.servicosRemovidos)
+        
+        if ordem.produtosRemovidos != None:
+            deletar_produtos(cursor, ordem.produtosRemovidos)
+        
+        conn.commit()
+
+        
 
         return {
             "status": "sucesso"
@@ -206,7 +220,7 @@ def update_ordem(ordem: OrdemUpdate, token: dict = Depends(verificar_token)):
 
 
 
-@router.get("/{id}")
+@router.get("/{cod_ordem}", response_model=OrdemResponse)
 def get_ordem(cod_ordem, token: dict = Depends(verificar_token)):
 
     usuario_id = token.get("sub")
@@ -243,9 +257,18 @@ def get_ordem(cod_ordem, token: dict = Depends(verificar_token)):
 
         cliente = ClienteResponse(COD_PESSOA=r[3], nome=r[4], telefone=r[5], cpfcnpj= r[6])
 
-        veiculo = VeiculoResponse(cod_veiculo= r[7], descricao = r[8], placa= r[9], ano= r[10], kmatual=r[11])
+        veiculo = VeiculoResponse(cod_veiculo= r[7], 
+                                  descricao = r[8], 
+                                  placa= r[9], 
+                                  ano= r[10], 
+                                  kmatual=r[11])
 
-        ordem = OrdemResponse(cod_ordem= r[0], status=r[1], titulo=titulo, descricao= descricao, cliente=cliente, veiculo=veiculo)
+        ordem = OrdemResponse(cod_ordem= r[0], 
+                              status=r[1], 
+                              titulo=titulo, 
+                              descricao= descricao, 
+                              cliente=cliente, 
+                              veiculo=veiculo)
 
         ordem.servicos = buscar_servicos(cursor, ordem.cod_ordem)
         ordem.produtos = buscar_produtos(cursor, cod_ordem)

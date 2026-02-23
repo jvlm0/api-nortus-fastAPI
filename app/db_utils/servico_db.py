@@ -98,6 +98,19 @@ def buscar_servicos(cursor, cod_ordem):
         serv.vendedores = buscar_vendedores(cursor, serv.cod_servico)
 
 
+def deletar_servicos(cursor, cod_servicos_removidos: List[int]):
+    for cod_serv in cod_servicos_removidos:
+        sql_delete_comissao = """
+            DELETE FROM COMPROD WHERE COD_GERADOR = ? AND TIPO = 'COMOSSERV'
+        """
+        cursor.execute(sql_delete_comissao, (cod_serv,))
+
+        sql_delete_servico = """
+            DELETE FROM DESPADIC WHERE COD_DESPADIC = ?
+        """
+        cursor.execute(sql_delete_servico, (cod_serv,))
+
+
 
         
 

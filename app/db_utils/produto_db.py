@@ -133,5 +133,22 @@ def buscar_produtos(cursor, cod_ordem: int):
         produtos.append(prod)
 
         return produtos
+    
+
+def deletar_produtos(cursor, cod_produtos_removidos: List[int]):
+
+    for cod_prod in cod_produtos_removidos:
+
+        sql = """
+            DELETE FROM COMPROD WHERE COD_GERADOR = ? AND TIPO = 'COMOS'
+        """
+
+        cursor.execute(sql, (cod_prod,))
+
+        sql = """
+            DELETE FROM ITPRODORD WHERE COD_ITPRODORD = ?
+        """
+
+        cursor.execute(sql, (cod_prod,))
 
 
