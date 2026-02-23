@@ -1,0 +1,60 @@
+from app.database import get_client_pool
+from app.schemas.veiculo import VeiculoCreate, VeiculoUpdate
+from fastapi import HTTPException
+
+
+def buscar_veiculo_por_placa(dsn: str, placa: str):
+    with get_client_pool(dsn).connection() as conn:
+        cursor = conn.cursor()
+        try:
+            sql = """
+                SELECT COD_EQUIPAMENTO, PLACA, DESCRICAO, ANO, COR, MARCA
+                FROM equipamento
+                WHERE UPPER(REPLACE(PLACA, '-', '')) = UPPER(?)
+            """
+            cursor.execute(sql, (placa,))
+            return cursor.fetchone()
+        finally:
+            cursor.close()
+
+
+def inserir_veiculo(dsn: str, veiculo: VeiculoCreate):
+    with get_client_pool(dsn).connection() as conn:
+        cursor = conn.cursor()
+        try:
+            sql = """
+                INSERT INTO equipamento (PLACA, COD_CLIENTE, DESCRICAO, ANO, KMATUAL)
+                VALUES (?, ?, ?, ?, ?)
+                RETURNING COD_EQUIPAMENTO
+            """
+            cursor.execute(sql, (veiculo.placa, veiculo.cod_cliente, veiculo.modelo, veiculo.ano, veiculo.kmatual))
+            cod_veiculo = cursor.fetchone()[0]
+            conn.commit()
+            return cod_veiculo
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cursor.close()
+
+
+def atualizar_veiculo(dsn: str, veiculo: VeiculoUpdate):
+    with get_client_pool(dsn).connection() as conn:
+        cursor = conn.cursor()
+        try:
+            sql = """
+                UPDATE equipamento SET DESCRICAO = ?, ANO = ?, KMATUAL = ?
+                WHERE COD_EQUIPAMENTO = ?
+                RETURNING COD_EQUIPAMENTO
+            """
+            cursor.execute(sql, (veiculo.modelo, veiculo.ano, veiculo.kmatual, veiculo.cod_veiculo))
+            resultado = cursor.fetchone()
+            conn.commit()
+
+            if not resultado:
+                raise HTTPException(status_code=404, detail="Veículo não encontrado")
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cursor.close()

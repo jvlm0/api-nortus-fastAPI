@@ -1,28 +1,4 @@
-# app/database.py
-import fdb
 import os
-
-def get_connection(caminhoBanco: str):
-    return fdb.connect(
-        dsn=caminhoBanco,
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        charset="UTF8"
-    )
-
-def get_connection_app_users():
-    # Dentro do Docker, use o nome do serviço
-    return fdb.connect(
-        dsn=os.getenv("DSN"),
-        user="SYSDBA",
-        password="masterkey",
-        charset="UTF8"
-    )
-
-
-
-import os
-os.environ["FIREBIRD_CLIENT"] = r"C:\Users\joaov\app-nortus\api-nortus\fbclient.dll"
 from firebird.driver import connect
 from queue import Queue, Empty
 from threading import Lock
@@ -41,19 +17,18 @@ class FirebirdPool:
         self._created = 0
         self._lock = Lock()
 
-        # cria conexões iniciais
         for _ in range(min_size):
             conn = self._create_connection()
             self._pool.put(conn)
 
     def _create_connection(self):
+        # _created só deve ser incrementado dentro de um lock no caller
         conn = connect(
             self.dsn,
             user=self.user,
             password=self.password,
             charset="UTF8"
         )
-        self._created += 1
         return conn
 
     def acquire(self):
@@ -62,13 +37,21 @@ class FirebirdPool:
         except Empty:
             with self._lock:
                 if self._created < self.max_size:
-                    return self._create_connection()
-
-            # espera se já atingiu o máximo
-            return self._pool.get()
+                    conn = self._create_connection()
+                    self._created += 1       # protegido pelo lock
+                    return conn
+            return self._pool.get()          # aguarda se pool está cheio
 
     def release(self, conn):
         self._pool.put(conn)
+
+    def close_all(self):
+        while not self._pool.empty():
+            try:
+                conn = self._pool.get_nowait()
+                conn.close()
+            except Exception:
+                pass
 
     def connection(self):
         return PooledConnection(self)
@@ -85,15 +68,32 @@ class PooledConnection:
         return self.conn
 
     def __exit__(self, exc_type, exc, tb):
-        self.pool.release(self.conn)
+        if exc_type is not None:
+            # Tenta rollback; se falhar, a conexão está morta
+            try:
+                self.conn.rollback()
+                self.pool.release(self.conn)
+            except Exception:
+                # Descarta a conexão morta e repõe uma nova no pool
+                with self.pool._lock:
+                    self.pool._created -= 1
+                try:
+                    new_conn = self.pool._create_connection()
+                    with self.pool._lock:
+                        self.pool._created += 1
+                    self.pool.release(new_conn)
+                except Exception:
+                    pass  # pool fica temporariamente menor, sem travar
+        else:
+            self.pool.release(self.conn)
 
 
-_app_pool = None
-_client_pools = {}
+_app_pool: FirebirdPool | None = None
+_client_pools: dict[str, FirebirdPool] = {}
 _lock = Lock()
 
 
-def get_app_pool():
+def get_app_pool() -> FirebirdPool:
     global _app_pool
 
     if _app_pool is None:
@@ -106,11 +106,10 @@ def get_app_pool():
                     min_size=1,
                     max_size=5
                 )
-
     return _app_pool
 
 
-def get_client_pool(dsn):
+def get_client_pool(dsn: str) -> FirebirdPool:
     if dsn not in _client_pools:
         with _lock:
             if dsn not in _client_pools:
@@ -121,5 +120,4 @@ def get_client_pool(dsn):
                     min_size=1,
                     max_size=3
                 )
-
     return _client_pools[dsn]

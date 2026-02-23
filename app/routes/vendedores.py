@@ -1,55 +1,20 @@
-
-from fastapi import APIRouter, Query, HTTPException, Depends
-from datetime import datetime
-from typing import List
-
-
-from app.database import get_connection
+from fastapi import APIRouter, Depends
+from fastapi.concurrency import run_in_threadpool
+from app.repositories import vendedor_repository
 from app.utils.auth import verificar_token
 from app.utils.db_utils import get_user_db
 from app.schemas.equipe import Vendedor
-
+from typing import List
 
 
 router = APIRouter(prefix="/vendedores", tags=["Vendedores"])
 
 
 @router.get("", response_model=List[Vendedor])
-def listar_vendedores(token: dict = Depends(verificar_token)):
-    
+async def listar_vendedores(token: dict = Depends(verificar_token)):
 
-    usuario_id = token.get("sub")
-    caminho_banco = get_user_db(int(usuario_id))
+    usuario_id = int(token.get("sub"))
 
-    conn = get_connection(caminho_banco)
-    cursor = conn.cursor()
+    dsn = await run_in_threadpool(get_user_db, usuario_id)
 
-
-    try:
-
-        sql = """
-            SELECT f.COD_FUNC, p.NOME
-                    FROM FUNCIONARIO f
-                    INNER JOIN PESSOA p ON f.COD_PESSOA = p.COD_PESSOA
-                    WHERE f.COD_PESSOA IS NOT NULL;
-        """
-        
-        cursor.execute(sql)
-        rows = cursor.fetchall()
-        vendedores = []
-        for r in rows:
-            vendedores.append({
-                "cod_vendedor": r[0],
-                "nome": r[1]
-            })
-
-        return vendedores
-
-
-    finally:
-        cursor.close()
-        conn.close()
-
-
-
-
+    return await run_in_threadpool(vendedor_repository.listar_vendedores, dsn)

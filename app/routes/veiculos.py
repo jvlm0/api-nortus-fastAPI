@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException, Depends
-from app.database import get_connection
-from app.utils.texto import tem_letra
+from fastapi.concurrency import run_in_threadpool
+from app.repositories import veiculo_repository
 from app.schemas.veiculo import VeiculoCreate, VeiculoUpdate
 from app.utils.db_utils import get_user_db
 from app.utils.auth import verificar_token
@@ -10,45 +10,16 @@ router = APIRouter(prefix="/veiculos", tags=["Veículos"])
 
 
 @router.get("/{placa}")
-def buscar_veiculo(placa: str, token: dict = Depends(verificar_token)):
-    
-    usuario_id = token.get("sub")
-    caminho_banco = get_user_db(int(usuario_id))
-    
-    conn = get_connection(caminho_banco)
+async def buscar_veiculo(placa: str, token: dict = Depends(verificar_token)):
 
-    cursor = conn.cursor()
+    usuario_id = int(token.get("sub"))
+    dsn = await run_in_threadpool(get_user_db, usuario_id)
 
-    try:
-        sql = """
-            SELECT COD_EQUIPAMENTO, PLACA, DESCRICAO, ANO, COR, MARCA
-            FROM equipamento
-            WHERE UPPER(REPLACE(PLACA, '-', '')) = UPPER(?)
-        """
-        cursor.execute(sql, (placa,))
+    resultado = await run_in_threadpool(
+        veiculo_repository.buscar_veiculo_por_placa, dsn, placa
+    )
 
-        resultado = cursor.fetchone()
-
-        if not resultado:
-            
-            veiculo = consulta_placa(placa)
-
-            if not veiculo:
-                raise HTTPException(status_code=404, detail="Veículo não encontrado")
-
-            cod_veiculo = inserir_veiculo(cursor, veiculo)
-            conn.commit()
-
-            return {
-                "cod_veiculo": cod_veiculo,
-                "placa": veiculo.placa,
-                "modelo": veiculo.modelo,
-                "ano": veiculo.ano,
-                "cor": veiculo.cor,
-                "marca": veiculo.marca
-            }
-
-
+    if resultado:
         return {
             "cod_veiculo": resultado[0],
             "placa": resultado[1],
@@ -58,79 +29,45 @@ def buscar_veiculo(placa: str, token: dict = Depends(verificar_token)):
             "marca": resultado[5]
         }
 
-    finally:
-        cursor.close()
-        conn.close()
+    # Não achou no banco — consulta API externa (já é async, await direto)
+    veiculo = await consulta_placa(placa)
 
+    if not veiculo:
+        raise HTTPException(status_code=404, detail="Veículo não encontrado")
 
+    cod_veiculo = await run_in_threadpool(
+        veiculo_repository.inserir_veiculo, dsn, veiculo
+    )
 
-def inserir_veiculo(cursor, veiculo: VeiculoCreate):
-    sql = """
-        INSERT INTO equipamento (PLACA, COD_CLIENTE, DESCRICAO, ANO, KMATUAL)
-        VALUES (?, ?, ?, ?, ?)
-        RETURNING COD_EQUIPAMENTO
-    """
-    cursor.execute(sql, (veiculo.placa, veiculo.cod_cliente, veiculo.modelo, veiculo.ano, veiculo.kmatual))
-    cod_veiculo = cursor.fetchone()[0]
-    return cod_veiculo
+    return {
+        "cod_veiculo": cod_veiculo,
+        "placa": veiculo.placa,
+        "modelo": veiculo.modelo,
+        "ano": veiculo.ano,
+        "cor": veiculo.cor,
+        "marca": veiculo.marca
+    }
+
 
 @router.post("", status_code=201)
-def inserir_veiculo(veiculo: VeiculoCreate, token: dict = Depends(verificar_token)):
+async def inserir_veiculo(veiculo: VeiculoCreate, token: dict = Depends(verificar_token)):
 
-    usuario_id = token.get("sub")
-    caminho_banco = get_user_db(int(usuario_id))
-    
-    conn = get_connection(caminho_banco)
+    usuario_id = int(token.get("sub"))
+    dsn = await run_in_threadpool(get_user_db, usuario_id)
 
-    cursor = conn.cursor()
+    cod_veiculo = await run_in_threadpool(
+        veiculo_repository.inserir_veiculo, dsn, veiculo
+    )
 
-    try:
-        cod_veiculo = inserir_veiculo(cursor, veiculo)
-        conn.commit()
-
-        return {
-            "status": "sucesso",
-            "cod_veiculo": cod_veiculo
-        }
-
-    except Exception as e:
-        conn.rollback()
-        raise e
-
-    finally:
-        cursor.close()
-        conn.close()
-
+    return {"status": "sucesso", "cod_veiculo": cod_veiculo}
 
 
 @router.patch("", status_code=200)
-def atualizarVeiculo(veiculo: VeiculoUpdate, token: dict = Depends(verificar_token)):
+async def atualizar_veiculo(veiculo: VeiculoUpdate, token: dict = Depends(verificar_token)):
 
-    usuario_id = token.get("sub")
-    caminho_banco = get_user_db(int(usuario_id))
-    
-    conn = get_connection(caminho_banco)
+    usuario_id = int(token.get("sub"))
+    dsn = await run_in_threadpool(get_user_db, usuario_id)
 
-    cursor = conn.cursor()
+    await run_in_threadpool(veiculo_repository.atualizar_veiculo, dsn, veiculo)
 
-    try:
-        sql = """
-            UPDATE equipamento set MODELO = ?, ANO = ?, KMATUAL = ?
-            WHERE COD_EQUIPAMENTO = ?
-            RETURNING cod_equipamento, kmatual;
-        """
-        cursor.execute(sql, (veiculo.modelo, veiculo.ano, veiculo.kmatual, veiculo.cod_veiculo))
-
-        resultado = cursor.fetchone()[0]
-        conn.commit()
-
-        if not resultado:
-            raise HTTPException(status_code=404, detail="Veículo não encontrado")
-
-        return {
-            "status": "sucesso"
-        }
-
-    finally:
-        cursor.close()
-        conn.close()
+    return {"status": "sucesso"}

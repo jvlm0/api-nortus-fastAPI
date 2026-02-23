@@ -97,8 +97,8 @@ def inserir_cliente(dsn: str, cliente):
             cod_pessoa = cursor.fetchone()[0]
 
             sql2 = """
-                INSERT INTO CLIENTE (COD_PESSOA, data_cad)
-                VALUES (?, ?)
+                INSERT INTO CLIENTE (COD_PESSOA, data_cad, ATIVO)
+                VALUES (?, ?, 1)
                 RETURNING COD_CLIENTE
             """
 
@@ -107,10 +107,8 @@ def inserir_cliente(dsn: str, cliente):
 
             conn.commit()
 
-            return {
-                "status": "sucesso",
-                "cod_pessoa": cod_cliente
-            }
+            return cod_cliente
+            
 
         except Exception as e:
             conn.rollback()

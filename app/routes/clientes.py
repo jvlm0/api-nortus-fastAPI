@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, Depends
-from starlette.concurrency import run_in_threadpool
+from fastapi.concurrency import run_in_threadpool
 from app.repositories import cliente_repository
 from app.schemas.cliente import ClienteCreate
 from app.utils.db_utils import get_user_db
@@ -21,15 +21,13 @@ async def buscar_cliente(q: str = Query(..., description="Nome ou telefone"),
         usuario_id
     )
 
-    clientes = await run_in_threadpool(
+    return await run_in_threadpool(
         cliente_repository.buscar_cliente,
         dsn,
         page,
         page_size,
         q
     )
-
-    return clientes
 
 
 
@@ -44,11 +42,14 @@ async def inserir_cliente(cliente: ClienteCreate, token: dict = Depends(verifica
         usuario_id
     )
 
-    result = await run_in_threadpool(
+    cod_cliente = await run_in_threadpool(
         cliente_repository.inserir_cliente,
         dsn,
         cliente
     )
 
 
-    return result
+    return {
+        "status": "sucesso",
+        "cod_cliente": cod_cliente
+    }

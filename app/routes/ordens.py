@@ -47,14 +47,12 @@ async def listar_ordens(page: int = Query(1, ge=1),
     )
 
 
-    ordens = await run_in_threadpool(
+    return await run_in_threadpool(
         ordem_repository.listar_ordens,
         dsn,
         page,
         page_size
     )
-
-    return ordens
 
 
 

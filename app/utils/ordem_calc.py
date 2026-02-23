@@ -5,7 +5,7 @@ from app.schemas.servico import ServicoCreate
 
 def calculaTotal(servicos: List[ServicoCreate]):
     
-    if (servicos == None): return 0
+    if (servicos == None): return 0, 0
 
     total = 0
 
