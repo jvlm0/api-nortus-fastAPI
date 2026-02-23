@@ -7,6 +7,9 @@ class VeiculoCreate(BaseModel):
     modelo: Optional[str] = None
     ano: Optional[str] = None
     kmatual: Optional[int] = None
+    cor: Optional[str] = None
+    chassi: Optional[str] = None
+    marca: Optional[str] = None
 
 
 class VeiculoResponse(BaseModel):
@@ -15,6 +18,10 @@ class VeiculoResponse(BaseModel):
     modelo: Optional[str] = None
     ano: Optional[str] = None
     kmatual: Optional[int] = None
+    cor: Optional[str] = None
+    chassi: Optional[str] = None
+    marcar: Optional[str] = None
+
 
 
 class VeiculoUpdate(BaseModel):

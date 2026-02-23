@@ -23,6 +23,10 @@ class OrdemUpdate(BaseModel):
     descricao: Optional[str] = None
     cod_veiculo: Optional[int] = None
     cod_cliente: Optional[int] = None
+    servicos: Optional[List[ServicoCreate]] = None
+    produtos: Optional[List[ItemProdutoCreate]] = None
+    servicosRemovidos: Optional[List[int]] = None
+    produtosRemovidos: Optional[List[int]] = None
 
 
 class OrdemResponse(BaseModel):

@@ -4,6 +4,7 @@ from app.utils.texto import tem_letra
 from app.schemas.veiculo import VeiculoCreate, VeiculoUpdate
 from app.utils.db_utils import get_user_db
 from app.utils.auth import verificar_token
+from app.utils.consulta_placa import consulta_placa
 
 router = APIRouter(prefix="/veiculos", tags=["Veículos"])
 
@@ -20,7 +21,7 @@ def buscar_veiculo(placa: str, token: dict = Depends(verificar_token)):
 
     try:
         sql = """
-            SELECT COD_EQUIPAMENTO, PLACA, DESCRICAO, ANO
+            SELECT COD_EQUIPAMENTO, PLACA, DESCRICAO, ANO, COR, MARCA
             FROM equipamento
             WHERE UPPER(REPLACE(PLACA, '-', '')) = UPPER(?)
         """
@@ -29,19 +30,49 @@ def buscar_veiculo(placa: str, token: dict = Depends(verificar_token)):
         resultado = cursor.fetchone()
 
         if not resultado:
-            raise HTTPException(status_code=404, detail="Veículo não encontrado")
+            
+            veiculo = consulta_placa(placa)
+
+            if not veiculo:
+                raise HTTPException(status_code=404, detail="Veículo não encontrado")
+
+            cod_veiculo = inserir_veiculo(cursor, veiculo)
+            conn.commit()
+
+            return {
+                "cod_veiculo": cod_veiculo,
+                "placa": veiculo.placa,
+                "modelo": veiculo.modelo,
+                "ano": veiculo.ano,
+                "cor": veiculo.cor,
+                "marca": veiculo.marca
+            }
+
 
         return {
             "cod_veiculo": resultado[0],
             "placa": resultado[1],
             "modelo": resultado[2],
-            "ano": resultado[3]
+            "ano": resultado[3],
+            "cor": resultado[4],
+            "marca": resultado[5]
         }
 
     finally:
         cursor.close()
         conn.close()
 
+
+
+def inserir_veiculo(cursor, veiculo: VeiculoCreate):
+    sql = """
+        INSERT INTO equipamento (PLACA, COD_CLIENTE, DESCRICAO, ANO, KMATUAL)
+        VALUES (?, ?, ?, ?, ?)
+        RETURNING COD_EQUIPAMENTO
+    """
+    cursor.execute(sql, (veiculo.placa, veiculo.cod_cliente, veiculo.modelo, veiculo.ano, veiculo.kmatual))
+    cod_veiculo = cursor.fetchone()[0]
+    return cod_veiculo
 
 @router.post("", status_code=201)
 def inserir_veiculo(veiculo: VeiculoCreate, token: dict = Depends(verificar_token)):
@@ -54,14 +85,7 @@ def inserir_veiculo(veiculo: VeiculoCreate, token: dict = Depends(verificar_toke
     cursor = conn.cursor()
 
     try:
-       
-        sql = """
-            INSERT INTO equipamento (PLACA, COD_CLIENTE, DESCRICAO, ANO, KMATUAL)
-            VALUES (?, ?, ?, ?, ?)
-            RETURNING COD_EQUIPAMENTO
-        """
-        cursor.execute(sql, (veiculo.placa, veiculo.cod_cliente, veiculo.modelo, veiculo.ano, veiculo.kmatual))
-        cod_veiculo = cursor.fetchone()[0]
+        cod_veiculo = inserir_veiculo(cursor, veiculo)
         conn.commit()
 
         return {
