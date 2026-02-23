@@ -100,7 +100,7 @@ def buscar_produtos(cursor, cod_ordem: int):
     sql =  """
         Select itprodord.cod_itprodord, 
                subproduto.descricao, 
-               subproduto.marca 
+               subproduto.marca,
                itprodord.qtd, 
                itprodord.desconto, 
                itprodord.vlrunit
@@ -113,9 +113,17 @@ def buscar_produtos(cursor, cod_ordem: int):
     cursor.execute(sql, (cod_ordem,)) 
      
     rows = cursor.fetchall()
-    produtos = List[ItemProdutoResponse]
+    
+    produtos: list[ItemProdutoResponse] = []
     
     for r in rows:
+
+        
+
+        
+        
+            
+        vendedores = buscar_vendedores(cursor, r[0])
 
         prod =  ItemProdutoResponse(
                         cod_itemProduto= r[0],
@@ -123,12 +131,8 @@ def buscar_produtos(cursor, cod_ordem: int):
                         marca=r[2],
                         quantidade=r[3],
                         desconto=r[4],
-                        valorUnitario=r[5])
-
-        
-        
-            
-        prod.vendedores = buscar_vendedores(cursor, prod.cod_itemProduto)
+                        valorUnitario=r[5],
+                        vendedores=vendedores)
         
         produtos.append(prod)
 

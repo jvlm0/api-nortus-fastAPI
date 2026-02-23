@@ -29,5 +29,4 @@ class ItemProdutoResponse(BaseModel):
     quantidade: Decimal
     valorUnitario: Decimal
     desconto: Decimal
-    equipe: EquipeResponsavel
     vendedores: List[Vendedor]

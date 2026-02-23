@@ -211,7 +211,7 @@ def get_ordem(dsn, cod_ordem: int):
             cursor.execute(sql, (cod_ordem,))
             r = cursor.fetchone()
             
-            titulo, descricao = r[2]
+            titulo, descricao = split_obs(r[2])
     
             cliente = ClienteResponse(COD_PESSOA=r[3], nome=r[4], telefone=r[5], cpfcnpj= r[6])
     

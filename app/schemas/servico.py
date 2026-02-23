@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pydantic import BaseModel
 from typing import Optional
 from typing import List
@@ -22,8 +24,8 @@ class ServicoCreate(BaseModel):
 class ServicoResponse(BaseModel):
     cod_servico: int
     descricao: str
-    quantidade: float
-    valorUnitario: float
-    desconto: float
+    quantidade: Decimal
+    valorUnitario: Decimal
+    desconto: Decimal
     equipe: EquipeResponsavel
     vendedores: List[Vendedor]

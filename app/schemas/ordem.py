@@ -5,8 +5,8 @@ from typing import List
 
 from app.schemas.cliente import ClienteResponse
 from app.schemas.veiculo import VeiculoResponse
-from app.schemas.servico import ServicoCreate
-from app.schemas.produto import ItemProdutoCreate
+from app.schemas.servico import ServicoCreate, ServicoResponse
+from app.schemas.produto import ItemProdutoCreate, ItemProdutoResponse
 
 class OrdemCreate(BaseModel):
     titulo: Optional[str] = None
@@ -36,8 +36,8 @@ class OrdemResponse(BaseModel):
     descricao: Optional[str] = None
     cliente: ClienteResponse
     veiculo: VeiculoResponse
-    servicos: Optional[List[ServicoCreate]] = None
-    produtos: Optional[List[ItemProdutoCreate]] = None
+    servicos: Optional[List[ServicoResponse]] = None
+    produtos: Optional[List[ItemProdutoResponse]] = None
 
     
 class OrdemResponsePaginated(BaseModel):

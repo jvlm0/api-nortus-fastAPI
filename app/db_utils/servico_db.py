@@ -76,15 +76,9 @@ def buscar_servicos(cursor, cod_ordem):
     cursor.execute(sql, (cod_ordem,))
 
     rows =  cursor.fetchall()
-    services = List[ServicoResponse]
+    services: list[ServicoResponse] = []
     for r in rows:
-        serv = ServicoResponse(
-                             cod_servico=r[0],
-                             descricao=r[1],
-                             quantidade=r[2],
-                             valorUnitario=r[3],
-                             desconto=r[4]
-        )
+        
 
         equipe =  EquipeResponsavel(
                                     cod_equipe=r[5],
@@ -93,9 +87,21 @@ def buscar_servicos(cursor, cod_ordem):
 
 
 
-        serv.equipe = equipe
+        
 
-        serv.vendedores = buscar_vendedores(cursor, serv.cod_servico)
+        vendedores = buscar_vendedores(cursor, r[0])
+
+        serv = ServicoResponse(
+                             cod_servico=r[0],
+                             descricao=r[1],
+                             quantidade=r[2],
+                             valorUnitario=r[3],
+                             desconto=r[4],
+                             equipe=equipe,
+                             vendedores=vendedores
+        )
+        services.append(serv)
+    return services
 
 
 def deletar_servicos(cursor, cod_servicos_removidos: List[int]):
