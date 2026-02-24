@@ -20,6 +20,7 @@ class ProdutoResponse(BaseModel):
     cod_subproduto: int
     nome: str
     marca: str
+    preco: Decimal
 
 
 class ItemProdutoResponse(BaseModel):

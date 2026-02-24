@@ -11,14 +11,16 @@ def buscar_produto(dsn: str, page: int, page_size: int, q: str):
             sql_count = """
                 SELECT count(*)
                 FROM SUBPRODUTO
+                Left Join estoque on subproduto.cod_subproduto = estoque.cod_subprod
                 WHERE SUBPRODUTO.ATIVO = 'S' AND UPPER(SUBPRODUTO.DESCRICAO) LIKE UPPER(?)
             """
             cursor.execute(sql_count, (f"%{q}%",))
             total = cursor.fetchone()[0]
 
             sql = f"""
-                SELECT COD_SUBPRODUTO, DESCRICAO, MARCA
+                SELECT COD_SUBPRODUTO, DESCRICAO, MARCA, estoque.vendvarv
                 FROM SUBPRODUTO
+                Left Join estoque on subproduto.cod_subproduto = estoque.cod_subprod
                 WHERE SUBPRODUTO.ATIVO = 'S' AND UPPER(SUBPRODUTO.DESCRICAO) LIKE UPPER(?)
                 ROWS {inicio} TO {fim}
             """
@@ -33,7 +35,8 @@ def buscar_produto(dsn: str, page: int, page_size: int, q: str):
                     {
                         "cod_subproduto": r[0],
                         "nome": r[1],
-                        "marca": r[2]
+                        "marca": r[2],
+                        "preco": r[3]
                     }
                     for r in resultados
                 ]
