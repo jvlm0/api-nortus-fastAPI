@@ -4,14 +4,14 @@ from app.db_utils.produto_db import buscar_produtos, deletar_produtos, inserir_p
 from app.db_utils.servico_db import buscar_servicos, inserir_servicos, deletar_servicos
 from datetime import datetime
 from app.schemas.cliente import ClienteResponse
-from app.schemas.ordem import OrdemResponse
+from app.schemas.ordem import OrdemResponse, OrdemCreate
 from app.schemas.ordem import OrdemResponse
 from app.schemas.veiculo import VeiculoResponse
 from app.utils.ordem_calc import calculaTotal
 from app.utils.ordem_utils import split_obs
 
 
-def inserir_ordem(dsn: str, ordem): 
+def inserir_ordem(dsn: str, ordem: OrdemCreate): 
     with get_client_pool(dsn).connection() as conn:
         cursor = conn.cursor()
 
@@ -26,14 +26,21 @@ def inserir_ordem(dsn: str, ordem):
 
         try:
 
-            valorTotal, valorTotalServ = calculaTotal(ordem.servicos)
+            valorTotal, valorTotalServ, valorTotalProd = calculaTotal(ordem.servicos, ordem.produtos)
+            
+            cod_funcionario = None
+            if valorTotalProd > 0:
+                cod_funcionario = ordem.produtos[0].cods_vendedores[0]
+            elif valorTotalServ > 0:
+                cod_funcionario = ordem.servicos[0].cods_vendedores[0]
+            
 
             sql = """
-                INSERT INTO ORDEM (COD_CLIENTE, COD_EQUIPAMENTO, DTABERT, HRABERT, OBSORDEM, STATUS, MONITOR,   COD_LOJA, TOTSERV, TOTORD)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO ORDEM (COD_CLIENTE, COD_EQUIPAMENTO, DTABERT, HRABERT, OBSORDEM, STATUS, MONITOR,   COD_LOJA, TOTSERV, TOTORD, TOTPROD, COD_FUNCIONARIO)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING COD_ORDEM
             """
-            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, data, hora, observacao, STATUS, MONITOR,     COD_LOJA, valorTotalServ, valorTotal))
+            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, data, hora, observacao, STATUS, MONITOR,     COD_LOJA, valorTotalServ, valorTotal, valorTotalProd, cod_funcionario))
             cod_ordem = cursor.fetchone()[0]
 
             if (ordem.servicos != None):
@@ -146,14 +153,20 @@ def update_ordem(dsn: str, ordem):
         observacao = (ordem.titulo or "") + " - " + (ordem.descricao or "")
     
         try:
-        
+            valorTotal, valorTotalServ, valorTotalProd = calculaTotal(ordem.servicos, ordem.produtos)
+            
+            cod_funcionario = None
+            if valorTotalProd > 0:
+                cod_funcionario = ordem.produtos[0].cods_vendedores[0]
+            elif valorTotalServ > 0:
+                cod_funcionario = ordem.servicos[0].cods_vendedores[0]
             
             sql = """
-                UPDATE ordem set cod_cliente = ?, cod_equipamento = ?, OBSORDEM = ?
+                UPDATE ordem set cod_cliente = ?, cod_equipamento = ?, OBSORDEM = ?, TOTSERV = ?, TOTORD = ?, TOTPROD = ?, COD_FUNCIONARIO = ?
                 WHERE COD_ORDEM = ?
                 RETURNING cod_ordem;
             """
-            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, observacao, ordem.cod_ordem))
+            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, observacao, valorTotalServ, valorTotal, valorTotalProd, cod_funcionario, ordem.cod_ordem))
     
             resultado = cursor.fetchone()[0]
     
