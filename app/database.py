@@ -1,55 +1,122 @@
 import os
+import time
 from firebird.driver import connect
 from queue import Queue, Empty
 from threading import Lock
 
 
+# tempo em segundos que uma conexão pode ficar ociosa antes de validar
+IDLE_TIMEOUT = 300.0
+
+
+class PooledConn:
+    """Wrapper para guardar a conexão e o timestamp do último uso"""
+    def __init__(self, conn):
+        self.conn = conn
+        self.last_used = time.monotonic()
+
+    def touch(self):
+        self.last_used = time.monotonic()
+
+    def is_stale(self) -> bool:
+        return (time.monotonic() - self.last_used) > IDLE_TIMEOUT
+
+    def is_alive(self) -> bool:
+        try:
+            self.conn.ping()
+            return True
+        except Exception:
+            return False
+
+
 class FirebirdPool:
 
-    def __init__(self, dsn, user, password, min_size=1, max_size=5):
+    def __init__(self, dsn, user, password, min_size=1, max_size=5, max_retries=3, retry_delay=1.0):
         self.dsn = dsn
         self.user = user
         self.password = password
         self.min_size = min_size
         self.max_size = max_size
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
 
         self._pool = Queue(maxsize=max_size)
         self._created = 0
         self._lock = Lock()
 
         for _ in range(min_size):
-            conn = self._create_connection()
-            self._pool.put(conn)
+            wrapped = self._create_connection()
+            self._pool.put(wrapped)
 
-    def _create_connection(self):
-        # _created só deve ser incrementado dentro de um lock no caller
+    def _create_connection(self) -> PooledConn:
         conn = connect(
             self.dsn,
             user=self.user,
             password=self.password,
             charset="UTF8"
         )
-        return conn
+        return PooledConn(conn)
 
-    def acquire(self):
+    def _discard(self, wrapped: PooledConn):
+        """Fecha e desconta do contador"""
+        with self._lock:
+            self._created -= 1
         try:
-            return self._pool.get_nowait()
-        except Empty:
-            with self._lock:
-                if self._created < self.max_size:
-                    conn = self._create_connection()
-                    self._created += 1       # protegido pelo lock
-                    return conn
-            return self._pool.get()          # aguarda se pool está cheio
+            wrapped.conn.close()
+        except Exception:
+            pass
 
-    def release(self, conn):
-        self._pool.put(conn)
+    def acquire(self) -> PooledConn:
+        for attempt in range(self.max_retries):
+
+            # tenta pegar uma conexão do pool
+            while not self._pool.empty():
+                try:
+                    wrapped = self._pool.get_nowait()
+
+                    # só faz ping se a conexão ficou ociosa por muito tempo
+                    if wrapped.is_stale() and not wrapped.is_alive():
+                        self._discard(wrapped)
+                        continue
+
+                    return wrapped
+
+                except Empty:
+                    break
+
+            # pool vazio — tenta criar nova
+            try:
+                with self._lock:
+                    if self._created < self.max_size:
+                        wrapped = self._create_connection()
+                        self._created += 1
+                        return wrapped
+
+                # pool cheio — aguarda devolução
+                wrapped = self._pool.get(timeout=5)
+
+                if wrapped.is_stale() and not wrapped.is_alive():
+                    self._discard(wrapped)
+                    continue
+
+                return wrapped
+
+            except Exception:
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.retry_delay)
+                    continue
+
+        raise Exception(f"Banco indisponível após {self.max_retries} tentativas")
+
+    def release(self, wrapped: PooledConn):
+        wrapped.touch()  # atualiza timestamp ao devolver
+        self._pool.put(wrapped)
 
     def close_all(self):
         while not self._pool.empty():
             try:
-                conn = self._pool.get_nowait()
-                conn.close()
+                wrapped = self._pool.get_nowait()
+                wrapped.conn.close()
             except Exception:
                 pass
 
@@ -59,36 +126,28 @@ class FirebirdPool:
 
 class PooledConnection:
 
-    def __init__(self, pool):
+    def __init__(self, pool: FirebirdPool):
         self.pool = pool
-        self.conn = None
+        self.wrapped = None
 
     def __enter__(self):
-        self.conn = self.pool.acquire()
-        return self.conn
+        self.wrapped = self.pool.acquire()
+        return self.wrapped.conn  # expõe só a conexão para o repository
 
     def __exit__(self, exc_type, exc, tb):
         if exc_type is not None:
             try:
-                self.conn.rollback()
-                self.pool.release(self.conn)
+                self.wrapped.conn.rollback()
+                self.pool.release(self.wrapped)
             except Exception:
-                with self.pool._lock:
-                    self.pool._created -= 1
-                try:
-                    new_conn = self.pool._create_connection()
-                    with self.pool._lock:
-                        self.pool._created += 1
-                    self.pool.release(new_conn)
-                except Exception:
-                    pass
+                self.pool._discard(self.wrapped)
         else:
             try:
-                # garante que não há transação pendente antes de devolver
-                self.conn.commit()
+                self.wrapped.conn.commit()
             except Exception:
-                pass
-            self.pool.release(self.conn)
+                self.pool._discard(self.wrapped)
+                return
+            self.pool.release(self.wrapped)
 
 
 _app_pool: FirebirdPool | None = None
@@ -107,8 +166,11 @@ def get_app_pool() -> FirebirdPool:
                     user=os.getenv("DB_USER"),
                     password=os.getenv("DB_PASSWORD"),
                     min_size=1,
-                    max_size=5
+                    max_size=5,
+                    max_retries=3,
+                    retry_delay=1.0
                 )
+
     return _app_pool
 
 
@@ -121,6 +183,9 @@ def get_client_pool(dsn: str) -> FirebirdPool:
                     user=os.getenv("DB_USER"),
                     password=os.getenv("DB_PASSWORD"),
                     min_size=1,
-                    max_size=3
+                    max_size=3,
+                    max_retries=3,
+                    retry_delay=1.0
                 )
+
     return _client_pools[dsn]
