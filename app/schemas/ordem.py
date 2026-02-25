@@ -11,8 +11,8 @@ from app.schemas.produto import ItemProdutoCreate, ItemProdutoResponse
 class OrdemCreate(BaseModel):
     titulo: Optional[str] = None
     descricao: Optional[str] = None
-    cod_veiculo: Optional[int] = None
-    cod_cliente: Optional[int] = None
+    cod_veiculo: int
+    cod_cliente: int
     servicos: Optional[List[ServicoCreate]] = None
     produtos: Optional[List[ItemProdutoCreate]] = None
 

@@ -51,5 +51,5 @@ async def inserir_cliente(cliente: ClienteCreate, token: dict = Depends(verifica
 
     return {
         "status": "sucesso",
-        "cod_cliente": cod_cliente
+        "cod_pessoa": cod_cliente
     }
