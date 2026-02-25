@@ -105,6 +105,7 @@ def buscar_servicos(cursor, cod_ordem):
 
 
 def deletar_servicos(cursor, cod_servicos_removidos: List[int]):
+    total = 0
     for cod_serv in cod_servicos_removidos:
         sql_delete_comissao = """
             DELETE FROM COMPROD WHERE COD_GERADOR = ? AND TIPO = 'COMOSSERV'
@@ -113,8 +114,14 @@ def deletar_servicos(cursor, cod_servicos_removidos: List[int]):
 
         sql_delete_servico = """
             DELETE FROM DESPADIC WHERE COD_DESPADIC = ?
+            RETURNING VLRTOTFIN
         """
         cursor.execute(sql_delete_servico, (cod_serv,))
+
+        valor_total_servico = cursor.fetchone()[0]
+        if valor_total_servico is not None:
+            total += valor_total_servico
+    return total
 
 
 

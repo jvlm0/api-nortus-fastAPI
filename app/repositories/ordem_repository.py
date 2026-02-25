@@ -28,6 +28,7 @@ def inserir_ordem(dsn: str, ordem: OrdemCreate):
 
             valorTotal, valorTotalServ, valorTotalProd = calculaTotal(ordem.servicos, ordem.produtos)
             
+
             cod_funcionario = None
             if valorTotalProd > 0:
                 cod_funcionario = ordem.produtos[0].cods_vendedores[0]
@@ -161,12 +162,25 @@ def update_ordem(dsn: str, ordem):
             elif valorTotalServ > 0:
                 cod_funcionario = ordem.servicos[0].cods_vendedores[0]
             
+            totalProdRemovido, totalServRemovido = 0, 0
+            if ordem.servicosRemovidos != None:
+                totalServRemovido += deletar_servicos(cursor, ordem.servicosRemovidos)
+            
+            if ordem.produtosRemovidos != None:
+                totalProdRemovido += deletar_produtos(cursor, ordem.produtosRemovidos)
+            
+            totalRemovido = totalProdRemovido + totalServRemovido
+
+            diffProd = valorTotalProd - totalProdRemovido
+            diffServ = valorTotalServ - totalServRemovido
+            diffTotal = valorTotal - totalRemovido 
+
             sql = """
-                UPDATE ordem set cod_cliente = ?, cod_equipamento = ?, OBSORDEM = ?, TOTSERV = ?, TOTORD = ?, TOTPROD = ?, COD_FUNCIONARIO = ?
+                UPDATE ordem set cod_cliente = ?, cod_equipamento = ?, OBSORDEM = ?, TOTSERV = TOTSERV + ?, TOTORD = TOTORD + ?, TOTPROD = TOTPROD + ?, COD_FUNCIONARIO = ?
                 WHERE COD_ORDEM = ?
                 RETURNING cod_ordem;
             """
-            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, observacao, valorTotalServ, valorTotal, valorTotalProd, cod_funcionario, ordem.cod_ordem))
+            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, observacao, diffServ, diffTotal, diffProd, cod_funcionario, ordem.cod_ordem))
     
             resultado = cursor.fetchone()[0]
     
@@ -178,11 +192,7 @@ def update_ordem(dsn: str, ordem):
             if ordem.produtos != None:
                 inserir_produtos(cursor, ordem.produtos, ordem.cod_ordem, datetime.now().strftime("%Y-%m-%d"))
             
-            if ordem.servicosRemovidos != None:
-                deletar_servicos(cursor, ordem.servicosRemovidos)
             
-            if ordem.produtosRemovidos != None:
-                deletar_produtos(cursor, ordem.produtosRemovidos)
             
             
     

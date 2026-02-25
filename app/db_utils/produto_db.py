@@ -141,6 +141,7 @@ def buscar_produtos(cursor, cod_ordem: int):
 
 def deletar_produtos(cursor, cod_produtos_removidos: List[int]):
 
+    total = 0
     for cod_prod in cod_produtos_removidos:
 
         sql = """
@@ -151,8 +152,17 @@ def deletar_produtos(cursor, cod_produtos_removidos: List[int]):
 
         sql = """
             DELETE FROM ITPRODORD WHERE COD_ITPRODORD = ?
+            RETURNING TOTAL
         """
 
         cursor.execute(sql, (cod_prod,))
+
+        valor_total_produto = cursor.fetchone()[0]
+
+        if valor_total_produto is not None:
+            total += valor_total_produto
+        
+    return total
+
 
 

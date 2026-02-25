@@ -13,7 +13,6 @@ class ItemProdutoCreate(BaseModel):
     quantidade: float
     valorUnitario: float
     desconto: float
-    cod_equipe: int
     cods_vendedores: List[int]
 
 class ProdutoResponse(BaseModel):
