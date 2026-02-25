@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi import HTTPException
 from app.database import get_client_pool
 from app.db_utils.produto_db import buscar_produtos, deletar_produtos, inserir_produtos
@@ -37,11 +39,11 @@ def inserir_ordem(dsn: str, ordem: OrdemCreate):
             
 
             sql = """
-                INSERT INTO ORDEM (COD_CLIENTE, COD_EQUIPAMENTO, DTABERT, HRABERT, OBSORDEM, STATUS, MONITOR,   COD_LOJA, TOTSERV, TOTORD, TOTPROD, COD_FUNCIONARIO)
+                INSERT INTO ORDEM (COD_CLIENTE, COD_EQUIPAMENTO, DTABERT, HRABERT, OBSORDEM, STATUS, MONITOR, COD_LOJA, TOTSERV, TOTORD, TOTPROD, COD_FUNCIONARIO)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING COD_ORDEM
             """
-            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, data, hora, observacao, STATUS, MONITOR,     COD_LOJA, valorTotalServ, valorTotal, valorTotalProd, cod_funcionario))
+            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, data, hora, observacao, STATUS, MONITOR, COD_LOJA, valorTotalServ, valorTotal, valorTotalProd, cod_funcionario))
             cod_ordem = cursor.fetchone()[0]
 
             if (ordem.servicos != None):
@@ -171,12 +173,12 @@ def update_ordem(dsn: str, ordem):
             
             totalRemovido = totalProdRemovido + totalServRemovido
 
-            diffProd = valorTotalProd - totalProdRemovido
-            diffServ = valorTotalServ - totalServRemovido
-            diffTotal = valorTotal - totalRemovido 
+            diffProd = Decimal(str(valorTotalProd)) - Decimal(str(totalProdRemovido))
+            diffServ = Decimal(str(valorTotalServ)) - Decimal(str(totalServRemovido))
+            diffTotal = Decimal(str(valorTotal)) - Decimal(str(totalRemovido))
 
             sql = """
-                UPDATE ordem set cod_cliente = ?, cod_equipamento = ?, OBSORDEM = ?, TOTSERV = TOTSERV + ?, TOTORD = TOTORD + ?, TOTPROD = TOTPROD + ?, COD_FUNCIONARIO = ?
+                UPDATE ordem set cod_cliente = ?, cod_equipamento = ?, OBSORDEM = ?, TOTSERV = COALESCE(TOTSERV, 0) + ?, TOTORD = COALESCE(TOTORD, 0) + ?, TOTPROD = COALESCE(TOTPROD, 0) + ?, COD_FUNCIONARIO = ?
                 WHERE COD_ORDEM = ?
                 RETURNING cod_ordem;
             """

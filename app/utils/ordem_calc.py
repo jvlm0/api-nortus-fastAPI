@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import List
 from app.schemas.produto import ItemProdutoCreate
 from app.schemas.servico import ServicoCreate
@@ -7,7 +8,7 @@ from app.schemas.servico import ServicoCreate
 def calculaTotal(servicos: List[ServicoCreate], produtos: List[ItemProdutoCreate]):
     
     
-
+ 
     total = 0
 
     totalServ = 0
