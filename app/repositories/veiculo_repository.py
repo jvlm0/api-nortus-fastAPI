@@ -42,13 +42,20 @@ def inserir_veiculo(dsn: str, veiculo: VeiculoCreate):
 def atualizar_veiculo(dsn: str, veiculo: VeiculoUpdate):
     with get_client_pool(dsn).connection() as conn:
         cursor = conn.cursor()
+
+        setQuery = ""
+        if veiculo.cod_cliente:
+            setQuery += f"COD_CLIENTE = ? "
         try:
-            sql = """
-                UPDATE equipamento SET KMATUAL = ?
+            sql = f"""
+                UPDATE equipamento SET KMATUAL = ?, {setQuery}
                 WHERE COD_EQUIPAMENTO = ?
                 RETURNING COD_EQUIPAMENTO
             """
-            cursor.execute(sql, (veiculo.kmatual, veiculo.cod_veiculo))
+            if setQuery:
+                cursor.execute(sql, (veiculo.kmatual, veiculo.cod_cliente, veiculo.cod_veiculo))
+            else:
+                cursor.execute(sql, (veiculo.kmatual, veiculo.cod_veiculo))
             resultado = cursor.fetchone()
 
             if not resultado:
