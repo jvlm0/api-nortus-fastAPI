@@ -6,12 +6,11 @@ from app.db_utils.produto_db import buscar_produtos, deletar_produtos, inserir_p
 from app.db_utils.servico_db import buscar_servicos, inserir_servicos, deletar_servicos
 from datetime import datetime
 from app.schemas.cliente import ClienteResponse
-from app.schemas.ordem import OrdemResponse, OrdemCreate
+from app.schemas.ordem import OrdemResponse, OrdemCreate, OrdemUpdate, ProblemaOrdem
 from app.schemas.ordem import OrdemResponse
 from app.schemas.veiculo import VeiculoResponse
 from app.utils.ordem_calc import calculaTotal
-from app.utils.ordem_utils import split_obs
-
+from app.utils.ordem_utils import split_obs, recuperar_problemas, formatar_problemas
 
 def inserir_ordem(dsn: str, ordem: OrdemCreate): 
     with get_client_pool(dsn).connection() as conn:
@@ -21,10 +20,16 @@ def inserir_ordem(dsn: str, ordem: OrdemCreate):
 
         data = dt.strftime("%Y-%m-%d")
         hora = dt.strftime("%H:%M:%S")
-        observacao = (ordem.titulo or "") + " - " + (ordem.descricao or "")
+        
         STATUS = "ABERTO"
         MONITOR = "INICIADO"
         COD_LOJA = 1 
+
+        texto_problema, texto_solucao = formatar_problemas(ordem.problemas)
+
+        if len(texto_problema) == 1:
+            texto_problema = ordem.problemas[0].descricao
+            texto_solucao = ordem.problemas[0].solucao if ordem.problemas[0].solucao else ""
 
         try:
 
@@ -39,11 +44,11 @@ def inserir_ordem(dsn: str, ordem: OrdemCreate):
             
 
             sql = """
-                INSERT INTO ORDEM (COD_CLIENTE, COD_EQUIPAMENTO, DTABERT, HRABERT, OBSORDEM, STATUS, MONITOR, COD_LOJA, TOTSERV, TOTORD, TOTPROD, COD_FUNCIONARIO)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO ORDEM (COD_CLIENTE, COD_EQUIPAMENTO, DTABERT, HRABERT, OBSORDEM, STATUS, MONITOR, COD_LOJA, TOTSERV, TOTORD, TOTPROD, COD_VENDEDOR, PROBREC, SOLUCAO)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING COD_ORDEM
             """
-            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, data, hora, observacao, STATUS, MONITOR, COD_LOJA, valorTotalServ, valorTotal, valorTotalProd, cod_funcionario))
+            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, data, hora, ordem.observacao, STATUS, MONITOR, COD_LOJA, valorTotalServ, valorTotal, valorTotalProd, cod_funcionario, texto_problema, texto_solucao))
             cod_ordem = cursor.fetchone()[0]
 
             if (ordem.servicos != None):
@@ -62,6 +67,8 @@ def inserir_ordem(dsn: str, ordem: OrdemCreate):
 
         finally:
             cursor.close()
+
+
 
 
 def listar_ordens(dsn: str, page: int, page_size: int):
@@ -101,7 +108,9 @@ def listar_ordens(dsn: str, page: int, page_size: int):
                        equipamento.descricao,
                        equipamento.placa,
                        equipamento.ano,
-                       equipamento.kmatual
+                       equipamento.kmatual,
+                       ORDEM.PROBREC,
+                       ORDEM.SOLUCAO
                 FROM ordem
                 LEFT JOIN cliente ON ordem.cod_cliente = cliente.cod_cliente
                 LEFT JOIN pessoa ON cliente.cod_pessoa = pessoa.cod_pessoa
@@ -114,31 +123,22 @@ def listar_ordens(dsn: str, page: int, page_size: int):
             cursor.execute(sql)
             rows = cursor.fetchall()
 
-            ordens = []
+            ordens: list[OrdemResponse] = []
 
             for r in rows:
 
-                titulo, descricao = split_obs(r[2])
+                
+            
+                ordem = OrdemResponse(
+                    cod_ordem= r[0], 
+                    status=r[1], 
+                    observacao=r[2],
+                    cliente=ClienteResponse(COD_PESSOA=r[3], nome=r[4], telefone=r[5], cpfcnpj= r[6]), 
+                    veiculo=VeiculoResponse(cod_veiculo= r[7], modelo = r[8], placa= r[9], ano= r[10], kmatual=r[11]),
+                    problemas=recuperar_problemas(r[12], r[13])
+                )
 
-                ordens.append({
-                    "cod_ordem": r[0],
-                    "status": r[1],
-                    "titulo": titulo,
-                    "descricao": descricao,
-                    "cliente": {
-                        "COD_PESSOA": r[3],
-                        "nome": r[4],
-                        "telefone": r[5],
-                        "cpfcnpj": r[6]
-                    },
-                    "veiculo": {
-                        "cod_veiculo": r[7],
-                        "modelo": r[8],
-                        "placa": r[9],
-                        "ano": r[10],
-                        "kmatual": r[11]
-                    }
-                })
+                ordens.append(ordem)
             return {
                 "page": page,
                 "page_size": page_size,
@@ -148,12 +148,14 @@ def listar_ordens(dsn: str, page: int, page_size: int):
         finally:
             cursor.close()
 
-def update_ordem(dsn: str, ordem):
+def update_ordem(dsn: str, ordem: OrdemUpdate):
 
     with get_client_pool(dsn).connection() as conn:
         cursor = conn.cursor()
 
-        observacao = (ordem.titulo or "") + " - " + (ordem.descricao or "")
+        
+
+        texto_problema, texto_solucao = formatar_problemas(ordem.problemas)
     
         try:
             valorTotal, valorTotalServ, valorTotalProd = calculaTotal(ordem.servicos, ordem.produtos)
@@ -178,11 +180,11 @@ def update_ordem(dsn: str, ordem):
             diffTotal = Decimal(str(valorTotal)) - Decimal(str(totalRemovido))
 
             sql = """
-                UPDATE ordem set cod_cliente = ?, cod_equipamento = ?, OBSORDEM = ?, TOTSERV = COALESCE(TOTSERV, 0) + ?, TOTORD = COALESCE(TOTORD, 0) + ?, TOTPROD = COALESCE(TOTPROD, 0) + ?, COD_VENDEDOR = COALESCE(?, COD_VENDEDOR)
+                UPDATE ordem set cod_cliente = ?, cod_equipamento = ?, OBSORDEM = ?, TOTSERV = COALESCE(TOTSERV, 0) + ?, TOTORD = COALESCE(TOTORD, 0) + ?, TOTPROD = COALESCE(TOTPROD, 0) + ?, COD_VENDEDOR = COALESCE(?, COD_VENDEDOR), PROBREC = ?, SOLUCAO = ?
                 WHERE COD_ORDEM = ?
                 RETURNING cod_ordem;
             """
-            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, observacao, diffServ, diffTotal, diffProd, cod_funcionario, ordem.cod_ordem))
+            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, ordem.observacao, diffServ, diffTotal, diffProd, cod_funcionario, texto_problema, texto_solucao, ordem.cod_ordem))
     
             resultado = cursor.fetchone()[0]
     
@@ -221,7 +223,9 @@ def get_ordem(dsn, cod_ordem: int):
                        equipamento.descricao,
                        equipamento.placa,
                        equipamento.ano,
-                       equipamento.kmatual
+                       equipamento.kmatual,
+                       ordem.PROBREC,
+                       ordem.SOLUCAO
                 FROM ordem
                 LEFT JOIN cliente ON ordem.cod_cliente = cliente.cod_cliente
                 LEFT JOIN pessoa ON cliente.cod_pessoa = pessoa.cod_pessoa
@@ -232,22 +236,21 @@ def get_ordem(dsn, cod_ordem: int):
             cursor.execute(sql, (cod_ordem,))
             r = cursor.fetchone()
             
-            titulo, descricao = split_obs(r[2])
     
             cliente = ClienteResponse(COD_PESSOA=r[3], nome=r[4], telefone=r[5], cpfcnpj= r[6])
     
             veiculo = VeiculoResponse(cod_veiculo= r[7], 
-                                      descricao = r[8], 
+                                      modelo = r[8], 
                                       placa= r[9], 
                                       ano= r[10], 
                                       kmatual=r[11])
     
             ordem = OrdemResponse(cod_ordem= r[0], 
                                   status=r[1], 
-                                  titulo=titulo, 
-                                  descricao= descricao, 
+                                  observacao=r[2],
                                   cliente=cliente, 
-                                  veiculo=veiculo)
+                                  veiculo=veiculo,
+                                  problemas=recuperar_problemas(r[12], r[13]))
     
             ordem.servicos = buscar_servicos(cursor, ordem.cod_ordem)
             ordem.produtos = buscar_produtos(cursor, cod_ordem)
