@@ -48,7 +48,7 @@ def atualizar_veiculo(dsn: str, veiculo: VeiculoUpdate):
             setQuery += f"COD_CLIENTE = ? "
         try:
             sql = f"""
-                UPDATE equipamento SET KMATUAL = ?, {setQuery}
+                UPDATE equipamento SET KMATUAL = COALESCE(?, KMATUAL), {setQuery}
                 WHERE COD_EQUIPAMENTO = ?
                 RETURNING COD_EQUIPAMENTO
             """

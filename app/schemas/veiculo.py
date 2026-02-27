@@ -3,7 +3,7 @@ from typing import Optional
 
 class VeiculoCreate(BaseModel):
     placa: str
-    cod_cliente: int
+    cod_cliente: Optional[int] = None
     modelo: Optional[str] = None
     ano: Optional[str] = None
     kmatual: Optional[int] = None
