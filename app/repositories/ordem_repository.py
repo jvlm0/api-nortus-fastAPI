@@ -178,7 +178,7 @@ def update_ordem(dsn: str, ordem):
             diffTotal = Decimal(str(valorTotal)) - Decimal(str(totalRemovido))
 
             sql = """
-                UPDATE ordem set cod_cliente = ?, cod_equipamento = ?, OBSORDEM = ?, TOTSERV = COALESCE(TOTSERV, 0) + ?, TOTORD = COALESCE(TOTORD, 0) + ?, TOTPROD = COALESCE(TOTPROD, 0) + ?, COD_FUNCIONARIO = ?
+                UPDATE ordem set cod_cliente = ?, cod_equipamento = ?, OBSORDEM = ?, TOTSERV = COALESCE(TOTSERV, 0) + ?, TOTORD = COALESCE(TOTORD, 0) + ?, TOTPROD = COALESCE(TOTPROD, 0) + ?, COD_VENDEDOR = COALESCE(?, COD_VENDEDOR)
                 WHERE COD_ORDEM = ?
                 RETURNING cod_ordem;
             """
@@ -194,14 +194,11 @@ def update_ordem(dsn: str, ordem):
             if ordem.produtos != None:
                 inserir_produtos(cursor, ordem.produtos, ordem.cod_ordem, datetime.now().strftime("%Y-%m-%d"))
             
-            
-            
-            
-    
-            
     
             return True
-    
+        except Exception as e:
+            conn.rollback()
+            raise e
         finally:
             cursor.close()
 
