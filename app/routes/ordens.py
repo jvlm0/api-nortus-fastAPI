@@ -89,3 +89,52 @@ async def get_ordem(cod_ordem, token: dict = Depends(verificar_token)):
     )
 
     return ordem
+
+@router.delete("/{cod_ordem}")
+async def delete_ordem(
+    cod_ordem: int,
+    trust: str,
+    token: dict = Depends(verificar_token)
+):
+
+    usuario_id = int(token.get("sub"))
+
+    dsn = await run_in_threadpool(
+        get_user_db,
+        usuario_id
+    )
+
+
+    count = await run_in_threadpool(
+        ordem_repository.get_count_itens,
+        dsn,
+        cod_ordem
+    )
+
+    if (count == 0):
+        cod_ordem_r = await run_in_threadpool(
+            ordem_repository.delete_ordem,
+            dsn,
+            cod_ordem
+        )
+
+        return {
+            "status": "sucesso",
+            "cod_ordem": cod_ordem_r
+        }
+    if count > 0 and trust == 'n':
+        return {
+            "quantidade": count,
+            "cod_ordem": cod_ordem
+        }
+    elif count > 0 and trust == 'y':
+        cod_ordem_r = await run_in_threadpool(
+            ordem_repository.delete_ordem,
+            dsn,
+            cod_ordem
+        )
+
+        return {
+            "status": "sucesso",
+            "cod_ordem": cod_ordem_r
+        }

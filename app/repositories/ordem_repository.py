@@ -2,8 +2,8 @@ from decimal import Decimal
 
 from fastapi import HTTPException
 from app.database import get_client_pool
-from app.db_utils.produto_db import buscar_produtos, deletar_produtos, inserir_produtos
-from app.db_utils.servico_db import buscar_servicos, inserir_servicos, deletar_servicos
+from app.db_utils.produto_db import buscar_produtos, deletar_produtos, inserir_produtos, get_count_prod_ordem, deletar_produtos_ordem
+from app.db_utils.servico_db import buscar_servicos, inserir_servicos, deletar_servicos, get_count_serv_ordem, deletar_servicos_ordem
 from datetime import datetime
 from app.schemas.cliente import ClienteResponse
 from app.schemas.ordem import OrdemResponse, OrdemCreate, OrdemUpdate, ProblemaOrdem
@@ -260,3 +260,41 @@ def get_ordem(dsn, cod_ordem: int):
         finally:
             cursor.close()
     
+def delete_ordem(dsn, cod_ordem: int):
+
+    with get_client_pool(dsn).connection() as conn:    
+        cursor = conn.cursor()
+
+        try:
+            sql = """
+                DELETE FROM ORDEM WHERE COD_ORDEM = ?
+                RETURNING COD_ORDEM
+            """
+            cursor.execute(sql, (cod_ordem,))
+            cod = cursor.fetchone()[0]
+            deletar_produtos_ordem(cursor, cod_ordem)
+            deletar_servicos_ordem(cursor, cod_ordem)
+
+
+            return cod
+
+        
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cursor.close()
+
+
+def get_count_itens(dsn, cod_ordem):
+    with get_client_pool(dsn).connection() as conn:
+        try:
+            cursor = conn.cursor()
+            count = get_count_serv_ordem(cursor, cod_ordem) + get_count_prod_ordem(cursor, cod_ordem)
+
+            return count
+        finally:
+                cursor.close()
+        
+
+                

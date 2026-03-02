@@ -159,5 +159,31 @@ def deletar_produtos(cursor, cod_produtos_removidos: List[int]):
         
     return total
 
+def deletar_produtos_ordem(cursor, cod_ordem):
+
+    sql = """
+        SELECT COD_ITPRODORD FROM ITPRODORD WHERE COD_ORDEM = ?
+    """
+
+    cursor.execute(sql, (cod_ordem,))
+
+    rows = cursor.fetchall()
+
+    cod_itens_del = []
+    for r in rows:
+        cod_itens_del.append(r[0])
+
+    deletar_produtos(cursor, cod_itens_del)
 
 
+def get_count_prod_ordem(cursor, cod_ordem) -> int:
+
+    sql = """
+        SELECT count(*) FROM ITPRODORD WHERE COD_ORDEM = ?    
+    """
+
+    cursor.execute(sql, (cod_ordem,))
+
+    return cursor.fetchone()[0]
+
+    

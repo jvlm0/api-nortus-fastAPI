@@ -124,6 +124,34 @@ def deletar_servicos(cursor, cod_servicos_removidos: List[int]):
     return total
 
 
+def deletar_servicos_ordem(cursor, cod_ordem):
+
+    sql = """
+        SELECT COD_DESPADIC FROM DESPADIC WHERE COD_GERADOR = ?
+    """
+
+    cursor.execute(sql, (cod_ordem,))
+
+    rows = cursor.fetchall()
+
+    cod_itens_del = []
+    for r in rows:
+        cod_itens_del.append(r[0])
+
+    deletar_servicos(cursor, cod_itens_del)
+
+
+def get_count_serv_ordem(cursor, cod_ordem):
+
+    sql = """
+        SELECT count(*) FROM DESPADIC WHERE COD_GERADOR = ?
+    """
+
+    cursor.execute(sql, (cod_ordem,))
+
+    return cursor.fetchone()[0]
+
+
 
         
 
