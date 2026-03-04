@@ -1,17 +1,24 @@
-from fastapi import APIRouter, Query, Depends
+import json
+from fastapi import APIRouter, Query, Depends, UploadFile, File, Form
+from typing import List, Optional
 
 from fastapi.concurrency import run_in_threadpool
 from app.repositories import ordem_repository
 from app.schemas.ordem import OrdemCreate, OrdemUpdate, OrdemResponsePaginated, OrdemResponse
 from app.utils.auth import verificar_token
 from app.utils.db_utils import get_user_db
-
+from app.utils.imagens_utils import salvar_imagens_ordem, listar_imagens_ordem, remover_imagens_ordem
 
 
 router = APIRouter(prefix="/ordens", tags=["Ordens de Serviço"])
 
 @router.post("", status_code=201)
-async def inserir_ordem(ordem: OrdemCreate, token: dict = Depends(verificar_token)):
+async def inserir_ordem(
+    dados: str = Form(...),
+    imagens: Optional[List[UploadFile]] = File(default=None),
+    token: dict = Depends(verificar_token)
+):
+    ordem = OrdemCreate(**json.loads(dados))
 
     usuario_id = int(token.get("sub"))
     
@@ -26,10 +33,19 @@ async def inserir_ordem(ordem: OrdemCreate, token: dict = Depends(verificar_toke
         ordem
     )
 
+    urls_imagens = []
+    if imagens:
+        urls_imagens = await run_in_threadpool(
+            salvar_imagens_ordem,
+            cod_ordem,
+            imagens
+        )
+
     return {
         "status": "sucesso",
-        "cod_ordem": cod_ordem
-        }
+        "cod_ordem": cod_ordem,
+        "imagens": urls_imagens
+    }
 
 
 
@@ -57,18 +73,36 @@ async def listar_ordens(page: int = Query(1, ge=1),
 
 
 @router.patch("", status_code=200)
-async def update_ordem(ordem: OrdemUpdate, token: dict = Depends(verificar_token)):
+async def update_ordem(
+    dados: str = Form(...),
+    imagens: Optional[List[UploadFile]] = File(default=None),
+    token: dict = Depends(verificar_token)
+):
+    ordem = OrdemUpdate(**json.loads(dados))
 
     usuario_id = int(token.get("sub"))
     dsn = await run_in_threadpool(get_user_db, usuario_id)
 
     await run_in_threadpool(ordem_repository.update_ordem, dsn, ordem)
 
+    # Salva novas imagens diretamente no diretório definitivo da ordem
+    if imagens:
+        await run_in_threadpool(
+            salvar_imagens_ordem,
+            ordem.cod_ordem,
+            imagens
+        )
+
     ordem_atualizada = await run_in_threadpool(
         ordem_repository.get_ordem, dsn, ordem.cod_ordem
     )
 
-    return ordem_atualizada
+    # Injeta as URLs das imagens salvas na resposta
+    imagens_salvas = await run_in_threadpool(listar_imagens_ordem, ordem.cod_ordem)
+    resposta = ordem_atualizada.dict() if hasattr(ordem_atualizada, 'dict') else dict(ordem_atualizada)
+    resposta["imagens"] = imagens_salvas
+
+    return resposta
 
 
 @router.get("/{cod_ordem}", response_model=OrdemResponse)
@@ -81,14 +115,18 @@ async def get_ordem(cod_ordem, token: dict = Depends(verificar_token)):
         usuario_id
     )
 
-
     ordem = await run_in_threadpool(
         ordem_repository.get_ordem,
         dsn,
         cod_ordem
     )
 
-    return ordem
+    # Injeta as imagens salvas no diretório da ordem
+    imagens_salvas = await run_in_threadpool(listar_imagens_ordem, int(cod_ordem))
+    resposta = ordem.dict() if hasattr(ordem, 'dict') else dict(ordem)
+    resposta["imagens"] = imagens_salvas
+
+    return resposta
 
 @router.delete("/{cod_ordem}")
 async def delete_ordem(

@@ -22,7 +22,6 @@ class OrdemCreate(BaseModel):
     problemas: Optional[List[ProblemaOrdem]] = None
 
 
-
 class OrdemUpdate(BaseModel): 
     cod_ordem: int
     observacao: Optional[str] = None
@@ -44,6 +43,7 @@ class OrdemResponse(BaseModel):
     servicos: Optional[List[ServicoResponse]] = None
     produtos: Optional[List[ItemProdutoResponse]] = None
     problemas: Optional[List[ProblemaOrdem]] = None
+    imagens: Optional[List[str]] = None  # URLs definitivas das imagens salvas
 
     
 class OrdemResponsePaginated(BaseModel):
