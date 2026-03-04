@@ -25,11 +25,10 @@ def inserir_ordem(dsn: str, ordem: OrdemCreate):
         MONITOR = "INICIADO"
         COD_LOJA = 1 
 
-        texto_problema, texto_solucao = formatar_problemas(ordem.problemas)
+        texto_problema, texto_solucao = None, None
+        if (ordem.problemas is not None):
+            texto_problema, texto_solucao = formatar_problemas(ordem.problemas)
 
-        if len(texto_problema) == 1:
-            texto_problema = ordem.problemas[0].descricao
-            texto_solucao = ordem.problemas[0].solucao if ordem.problemas[0].solucao else ""
 
         try:
 
@@ -153,9 +152,9 @@ def update_ordem(dsn: str, ordem: OrdemUpdate):
     with get_client_pool(dsn).connection() as conn:
         cursor = conn.cursor()
 
-        
-
-        texto_problema, texto_solucao = formatar_problemas(ordem.problemas)
+        texto_problema, texto_solucao = None, None
+        if (ordem.problemas is not None):
+            texto_problema, texto_solucao = formatar_problemas(ordem.problemas)
     
         try:
             valorTotal, valorTotalServ, valorTotalProd = calculaTotal(ordem.servicos, ordem.produtos)
