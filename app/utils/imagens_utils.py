@@ -26,13 +26,21 @@ def salvar_imagens_ordem(cod_ordem: int, files: List[UploadFile]) -> List[str]:
     pasta_ordem = os.path.join(UPLOAD_BASE_DIR, str(cod_ordem))
     os.makedirs(pasta_ordem, exist_ok=True)
 
+    # Determina o próximo índice com base nas imagens já existentes na pasta
+    arquivos_existentes = [
+        f for f in os.listdir(pasta_ordem)
+        if os.path.isfile(os.path.join(pasta_ordem, f))
+    ]
+    proximo_indice = len(arquivos_existentes) + 1
+
     urls_definitivas = []
 
-    for file in files:
+    for i, file in enumerate(files):
         conteudo = file.file.read()
 
         extensao = os.path.splitext(file.filename or "img")[1].lower() or ".jpg"
-        nome_definitivo = f"{uuid.uuid4().hex}{extensao}"
+        prefixo = str(proximo_indice + i).zfill(4)
+        nome_definitivo = f"{prefixo}_{uuid.uuid4().hex}{extensao}"
         caminho_definitivo = os.path.join(pasta_ordem, nome_definitivo)
 
         with open(caminho_definitivo, "wb") as f:

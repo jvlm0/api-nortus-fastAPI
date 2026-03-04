@@ -121,12 +121,10 @@ async def get_ordem(cod_ordem, token: dict = Depends(verificar_token)):
         cod_ordem
     )
 
-    # Injeta as imagens salvas no diretório da ordem
     imagens_salvas = await run_in_threadpool(listar_imagens_ordem, int(cod_ordem))
-    resposta = ordem.dict() if hasattr(ordem, 'dict') else dict(ordem)
-    resposta["imagens"] = imagens_salvas
+    ordem.imagens = imagens_salvas
 
-    return resposta
+    return ordem
 
 @router.delete("/{cod_ordem}")
 async def delete_ordem(
