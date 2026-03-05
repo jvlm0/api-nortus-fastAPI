@@ -24,6 +24,8 @@ services:
       - .env
     expose:
       - "8000"
+    volumes:
+      - uploads_data:/app/uploads
     networks:
       - app_network
 
@@ -37,6 +39,7 @@ services:
       - "80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - uploads_data:/app/uploads:ro
     networks:
       - app_network
 
@@ -44,3 +47,6 @@ services:
 networks:
   app_network:
     driver: bridge
+
+volumes:
+  uploads_data:
