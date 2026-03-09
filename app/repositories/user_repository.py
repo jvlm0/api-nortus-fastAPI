@@ -91,7 +91,6 @@ def atualizar_usuario(user_id: int, dados):
             novo_username = dados.username if dados.username is not None else row[1]
             novo_caminho = dados.caminho_banco if dados.caminho_banco is not None else row[2]
 
-            # Verifica duplicidade de username (se foi alterado)
             if dados.username and dados.username != row[1]:
                 cursor.execute(
                     "SELECT 1 FROM USUARIO WHERE USERNAME = ? AND ID <> ?",
@@ -129,9 +128,19 @@ def deletar_usuario(user_id: int):
     with get_app_pool().connection() as conn:
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT 1 FROM USUARIO WHERE ID = ?", (user_id,))
-            if not cursor.fetchone():
+            cursor.execute(
+                "SELECT IS_ADMIN FROM USUARIO WHERE ID = ?",
+                (user_id,)
+            )
+            row = cursor.fetchone()
+            if not row:
                 raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+            if bool(row[0]):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Não é possível remover um usuário administrador"
+                )
 
             cursor.execute("DELETE FROM USUARIO WHERE ID = ?", (user_id,))
             return {"mensagem": "Usuário removido com sucesso"}
