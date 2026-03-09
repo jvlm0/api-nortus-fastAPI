@@ -41,3 +41,106 @@ def criar_usuario(usuario):
             raise HTTPException(status_code=500, detail=str(e))
         finally:
             cursor.close()
+
+
+def listar_usuarios():
+    with get_app_pool().connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT ID, USERNAME, CAMINHO_BANCO FROM USUARIO ORDER BY ID")
+            rows = cursor.fetchall()
+            return [{"id": r[0], "username": r[1], "caminho_banco": r[2]} for r in rows]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        finally:
+            cursor.close()
+
+
+def buscar_usuario(user_id: int):
+    with get_app_pool().connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT ID, USERNAME, CAMINHO_BANCO FROM USUARIO WHERE ID = ?",
+                (user_id,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Usuário não encontrado")
+            return {"id": row[0], "username": row[1], "caminho_banco": row[2]}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        finally:
+            cursor.close()
+
+
+def atualizar_usuario(user_id: int, dados):
+    with get_app_pool().connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT ID, USERNAME, CAMINHO_BANCO FROM USUARIO WHERE ID = ?",
+                (user_id,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+            novo_username = dados.username if dados.username is not None else row[1]
+            novo_caminho = dados.caminho_banco if dados.caminho_banco is not None else row[2]
+
+            # Verifica duplicidade de username (se foi alterado)
+            if dados.username and dados.username != row[1]:
+                cursor.execute(
+                    "SELECT 1 FROM USUARIO WHERE USERNAME = ? AND ID <> ?",
+                    (dados.username, user_id)
+                )
+                if cursor.fetchone():
+                    raise HTTPException(status_code=400, detail="Username já existe")
+
+            if dados.senha:
+                from app.utils.security import hash_password
+                nova_senha_hash = hash_password(dados.senha)
+                cursor.execute(
+                    "UPDATE USUARIO SET USERNAME = ?, CAMINHO_BANCO = ?, SENHA_HASH = ? WHERE ID = ?",
+                    (novo_username, novo_caminho, nova_senha_hash, user_id)
+                )
+            else:
+                cursor.execute(
+                    "UPDATE USUARIO SET USERNAME = ?, CAMINHO_BANCO = ? WHERE ID = ?",
+                    (novo_username, novo_caminho, user_id)
+                )
+
+            return {"id": user_id, "username": novo_username, "caminho_banco": novo_caminho}
+
+        except HTTPException:
+            conn.rollback()
+            raise
+        except Exception as e:
+            conn.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+        finally:
+            cursor.close()
+
+
+def deletar_usuario(user_id: int):
+    with get_app_pool().connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT 1 FROM USUARIO WHERE ID = ?", (user_id,))
+            if not cursor.fetchone():
+                raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+            cursor.execute("DELETE FROM USUARIO WHERE ID = ?", (user_id,))
+            return {"mensagem": "Usuário removido com sucesso"}
+
+        except HTTPException:
+            conn.rollback()
+            raise
+        except Exception as e:
+            conn.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+        finally:
+            cursor.close()

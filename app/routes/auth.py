@@ -29,7 +29,8 @@ async def login(credenciais: LoginRequest):
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "usuario": data["username"]
+        "usuario": data["username"],
+        "is_admin": data["is_admin"]
     }
 
 

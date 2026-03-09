@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Admin · Usuários Nortus</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161d;
+    --surface2: #1a1e28;
+    --border: #252a38;
+    --border2: #2e3447;
+    --accent: #4f8ef7;
+    --accent-dim: rgba(79,142,247,0.12);
+    --accent-glow: rgba(79,142,247,0.3);
+    --danger: #f74f4f;
+    --danger-dim: rgba(247,79,79,0.12);
+    --success: #4ff7a0;
+    --text: #e8ecf5;
+    --text-muted: #6b748a;
+    --text-dim: #9aa3bc;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; font-size: 14px; }
+
+  /* ── LOGIN ── */
+  #login-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse 60% 50% at 30% 40%, rgba(79,142,247,0.06) 0%, transparent 70%), var(--bg);
+  }
+  .login-card {
+    width: 380px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 40px 36px; position: relative; overflow: hidden;
+  }
+  .login-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .login-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
+  .login-logo-icon {
+    width: 32px; height: 32px; background: var(--accent-dim); border: 1px solid var(--accent);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  .login-logo-text { font-family: var(--mono); font-size: 13px; color: var(--text-dim); letter-spacing: 0.08em; }
+  .login-logo-text span { color: var(--accent); }
+  .login-card h1 { font-size: 20px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.02em; }
+  .login-card > p { color: var(--text-muted); font-size: 13px; margin-bottom: 28px; }
+
+  /* ── ACESSO NEGADO ── */
+  #denied-screen {
+    min-height: 100vh; display: none; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse 60% 50% at 70% 60%, rgba(247,79,79,0.05) 0%, transparent 70%), var(--bg);
+  }
+  #denied-screen.visible { display: flex; }
+  .denied-card {
+    width: 400px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 40px 36px; position: relative; overflow: hidden; text-align: center;
+  }
+  .denied-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--danger), transparent);
+  }
+  .denied-icon {
+    width: 52px; height: 52px; background: var(--danger-dim); border: 1px solid var(--danger);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 22px; margin: 0 auto 20px;
+  }
+  .denied-card h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .denied-card p { color: var(--text-muted); font-size: 13px; line-height: 1.6; margin-bottom: 24px; }
+  .denied-user {
+    font-family: var(--mono); font-size: 12px; color: var(--text-dim);
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 6px; padding: 8px 14px; margin-bottom: 24px; display: inline-block;
+  }
+
+  /* ── SHARED FIELD / BTN ── */
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block; font-size: 11px; font-family: var(--mono); letter-spacing: 0.08em;
+    color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;
+  }
+  .field input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: var(--mono);
+    font-size: 13px; outline: none; transition: border-color 0.2s;
+  }
+  .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer;
+    font-family: var(--sans); font-size: 13px; font-weight: 500; transition: all 0.15s; text-decoration: none;
+  }
+  .btn-primary {
+    background: var(--accent); color: #fff; width: 100%; padding: 12px; font-size: 14px; margin-top: 4px;
+  }
+  .btn-primary:hover { background: #6aa0ff; transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-glow); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border2); }
+  .btn-ghost:hover { border-color: var(--border); color: var(--text); background: var(--surface2); }
+  .btn-danger-ghost { background: transparent; color: var(--danger); border: 1px solid transparent; padding: 6px 10px; font-size: 12px; }
+  .btn-danger-ghost:hover { background: var(--danger-dim); border-color: var(--danger); }
+  .btn-accent-ghost { background: transparent; color: var(--accent); border: 1px solid transparent; padding: 6px 10px; font-size: 12px; }
+  .btn-accent-ghost:hover { background: var(--accent-dim); border-color: var(--accent); }
+  .error-msg {
+    background: var(--danger-dim); border: 1px solid var(--danger); border-radius: 8px;
+    padding: 10px 14px; color: var(--danger); font-size: 13px; margin-bottom: 16px; display: none;
+  }
+  .error-msg.show { display: block; }
+
+  /* ── APP ── */
+  #app { display: none; min-height: 100vh; flex-direction: column; }
+  #app.visible { display: flex; }
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px;
+    height: 56px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-icon {
+    width: 28px; height: 28px; background: var(--accent-dim); border: 1px solid var(--accent);
+    border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px;
+  }
+  header h2 { font-size: 14px; font-family: var(--mono); color: var(--text-dim); letter-spacing: 0.04em; }
+  header h2 span { color: var(--text); }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .user-badge {
+    font-family: var(--mono); font-size: 12px; color: var(--text-muted);
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px;
+  }
+  .user-badge span { color: var(--accent); }
+  .admin-badge {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    background: var(--accent-dim); border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 20px; padding: 3px 10px;
+  }
+  .btn-logout {
+    background: transparent; border: 1px solid var(--border2); color: var(--text-muted);
+    border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 12px; transition: all 0.15s;
+  }
+  .btn-logout:hover { color: var(--danger); border-color: var(--danger); }
+  main { flex: 1; padding: 32px; max-width: 1100px; width: 100%; margin: 0 auto; }
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; }
+  .page-header h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.03em; }
+  .page-header p { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+  .btn-new {
+    background: var(--accent); color: #fff; border-radius: 8px; padding: 9px 16px;
+    font-size: 13px; font-weight: 500; white-space: nowrap;
+  }
+  .btn-new:hover { background: #6aa0ff; transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-glow); }
+
+  /* ── TABLE ── */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .table-toolbar { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .search-wrap { position: relative; }
+  .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+  .search-input {
+    background: var(--surface2); border: 1px solid var(--border2); border-radius: 7px;
+    padding: 8px 14px 8px 36px; color: var(--text); font-family: var(--mono); font-size: 12px;
+    outline: none; width: 240px; transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .count-badge { font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-left: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--surface2); border-bottom: 1px solid var(--border); }
+  th { padding: 11px 20px; text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); font-weight: 500; }
+  td { padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background 0.1s; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  .id-cell { font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
+  .username-cell { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+  .path-cell { font-family: var(--mono); font-size: 11px; color: var(--text-dim); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .actions-cell { display: flex; gap: 4px; }
+  .state-row td { padding: 48px 20px; text-align: center; color: var(--text-muted); font-size: 13px; }
+  .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; animation: fadeIn 0.15s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border2); border-radius: 14px;
+    width: 440px; max-width: 95vw; position: relative; overflow: hidden;
+    animation: slideUp 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: none; } }
+  .modal::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); }
+  .modal-header { padding: 24px 24px 0; display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+  .modal-header h3 { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+  .modal-header p { color: var(--text-muted); font-size: 12px; margin-top: 3px; }
+  .modal-close { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 18px; line-height: 1; padding: 4px; border-radius: 4px; transition: color 0.15s; }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 0 24px 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ── TOAST ── */
+  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .toast { background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 12px 16px; font-size: 13px; display: flex; align-items: center; gap: 10px; animation: toastIn 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: all; min-width: 220px; max-width: 340px; }
+  .toast.success { border-color: var(--success); }
+  .toast.error { border-color: var(--danger); }
+  .toast-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .toast.success .toast-dot { background: var(--success); }
+  .toast.error .toast-dot { background: var(--danger); }
+  @keyframes toastIn { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform:none; } }
+
+  /* ── CONFIRM ── */
+  .confirm-overlay { position: fixed; inset: 0; z-index: 150; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; }
+  .confirm-overlay.open { display: flex; }
+  .confirm-box { background: var(--surface); border: 1px solid var(--border2); border-radius: 12px; padding: 28px 28px 24px; width: 360px; text-align: center; animation: slideUp 0.2s cubic-bezier(0.34,1.56,0.64,1); }
+  .confirm-icon { width: 44px; height: 44px; background: var(--danger-dim); border: 1px solid var(--danger); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; margin: 0 auto 16px; }
+  .confirm-box h4 { font-size: 16px; margin-bottom: 8px; }
+  .confirm-box p { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; line-height: 1.5; }
+  .confirm-actions { display: flex; gap: 10px; justify-content: center; }
+  .btn-confirm-delete { background: var(--danger); color: #fff; border: none; border-radius: 8px; padding: 9px 20px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+  .btn-confirm-delete:hover { opacity: 0.85; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">⬡</div>
+      <div class="login-logo-text">NORTUS / <span>admin</span></div>
+    </div>
+    <h1>Acesso ao painel</h1>
+    <p>Entre com suas credenciais de administrador</p>
+    <div class="error-msg" id="login-error"></div>
+    <div class="field">
+      <label>Usuário</label>
+      <input type="text" id="login-username" placeholder="seu.usuario" autocomplete="username"/>
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- ACESSO NEGADO -->
+<div id="denied-screen">
+  <div class="denied-card">
+    <div class="denied-icon">🔒</div>
+    <h2>Acesso negado</h2>
+    <p>Sua conta não tem permissão de administrador para acessar este painel.</p>
+    <div class="denied-user" id="denied-user-info"></div>
+    <button class="btn btn-ghost" style="width:100%;" onclick="doLogout()">Voltar ao login</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <div class="header-left">
+      <div class="header-icon">⬡</div>
+      <h2>NORTUS / <span>Usuários</span></h2>
+    </div>
+    <div class="header-right">
+      <span class="admin-badge">admin</span>
+      <span class="user-badge">logado como <span id="header-user">—</span></span>
+      <button class="btn-logout" onclick="doLogout()">Sair</button>
+    </div>
+  </header>
+  <main>
+    <div class="page-header">
+      <div>
+        <h1>Gerenciar Usuários</h1>
+        <p>Usuários cadastrados no sistema Nortus</p>
+      </div>
+      <button class="btn btn-new" onclick="openCreateModal()">+ Novo usuário</button>
+    </div>
+    <div class="table-wrap">
+      <div class="table-toolbar">
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input class="search-input" type="text" id="search" placeholder="Filtrar usuários..." oninput="filterTable()"/>
+        </div>
+        <span class="count-badge" id="count-badge">0 usuários</span>
+        <button class="btn btn-ghost" style="padding:7px 12px;font-size:12px;" onclick="loadUsers()">↻ Recarregar</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:60px;">#ID</th>
+            <th>Usuário</th>
+            <th>Caminho do Banco</th>
+            <th style="width:120px;text-align:right;">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody">
+          <tr class="state-row"><td colspan="4"><span class="spinner"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL CRIAR/EDITAR -->
+<div class="modal-overlay" id="user-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-title">Novo usuário</h3>
+        <p id="modal-subtitle">Preencha os dados do novo usuário</p>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="error-msg" id="modal-error"></div>
+      <input type="hidden" id="modal-user-id"/>
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="modal-username" placeholder="usuario.sistema"/>
+      </div>
+      <div class="field">
+        <label id="senha-label">Senha</label>
+        <input type="password" id="modal-senha" placeholder="Mínimo 6 caracteres"/>
+      </div>
+      <div class="field">
+        <label>Caminho do banco de dados</label>
+        <input type="text" id="modal-caminho" placeholder="C:\caminho\para\banco.fdb"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" style="width:auto;padding:9px 20px;" id="btn-save" onclick="saveUser()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-icon">⚠</div>
+    <h4>Remover usuário</h4>
+    <p>Esta ação é irreversível.<br>O usuário <strong id="confirm-username"></strong> será excluído permanentemente.</p>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="closeConfirm()">Cancelar</button>
+      <button class="btn-confirm-delete" id="btn-confirm-delete">Sim, remover</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+  const API = window.location.origin;
+  let token = localStorage.getItem('nortus_token') || '';
+  let currentUser = localStorage.getItem('nortus_user') || '';
+  let allUsers = [];
+  let editingId = null;
+
+  // ── INIT: verifica se já há sessão salva ──
+  window.onload = () => {
+    if (token && currentUser) {
+      // Sessão salva — verifica se ainda é admin consultando a API com o token
+      verifyAdminSession();
+    }
+  };
+
+  async function verifyAdminSession() {
+    try {
+      // Tenta carregar usuários: se o token estiver válido e for admin, passa
+      const res = await fetch(`${API}/users`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.status === 401) { doLogout(); return; }
+      if (!res.ok) { doLogout(); return; }
+      // Token válido — verifica flag admin no localStorage
+      const isAdmin = localStorage.getItem('nortus_is_admin') === 'true';
+      if (!isAdmin) { showDenied(); return; }
+      showApp();
+    } catch {
+      doLogout();
+    }
+  }
+
+  document.getElementById('login-senha').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  async function doLogin() {
+    const username = document.getElementById('login-username').value.trim();
+    const senha = document.getElementById('login-senha').value;
+    const btn = document.getElementById('btn-login');
+    const errEl = document.getElementById('login-error');
+    if (!username || !senha) { showLoginError('Preencha todos os campos.'); return; }
+    btn.disabled = true; btn.textContent = 'Verificando...';
+    errEl.classList.remove('show');
+    try {
+      const res = await fetch(`${API}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, senha })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Credenciais inválidas');
+
+      // Salva sessão
+      token = data.access_token;
+      currentUser = data.usuario;
+      localStorage.setItem('nortus_token', token);
+      localStorage.setItem('nortus_user', currentUser);
+      localStorage.setItem('nortus_is_admin', String(data.is_admin));
+
+      // Bloqueia se não for admin
+      if (!data.is_admin) {
+        showDenied();
+        return;
+      }
+
+      showApp();
+    } catch (e) { showLoginError(e.message); }
+    finally { btn.disabled = false; btn.textContent = 'Entrar'; }
+  }
+
+  function showLoginError(msg) {
+    const el = document.getElementById('login-error');
+    el.textContent = msg; el.classList.add('show');
+  }
+
+  function showDenied() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('denied-user-info').textContent = `usuário: ${currentUser}`;
+    document.getElementById('denied-screen').classList.add('visible');
+  }
+
+  function showApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('denied-screen').classList.remove('visible');
+    document.getElementById('app').classList.add('visible');
+    document.getElementById('header-user').textContent = currentUser;
+    loadUsers();
+  }
+
+  function doLogout() {
+    token = ''; currentUser = '';
+    localStorage.removeItem('nortus_token');
+    localStorage.removeItem('nortus_user');
+    localStorage.removeItem('nortus_is_admin');
+    document.getElementById('app').classList.remove('visible');
+    document.getElementById('denied-screen').classList.remove('visible');
+    document.getElementById('login-screen').style.display = 'flex';
+  }
+
+  // ── USERS ──
+  async function loadUsers() {
+    const tbody = document.getElementById('users-tbody');
+    tbody.innerHTML = '<tr class="state-row"><td colspan="4"><span class="spinner"></span></td></tr>';
+    try {
+      const res = await fetch(`${API}/users`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) { doLogout(); return; }
+      if (!res.ok) throw new Error('Erro ao carregar usuários');
+      allUsers = await res.json();
+      renderTable(allUsers);
+    } catch (e) {
+      tbody.innerHTML = `<tr class="state-row"><td colspan="4" style="color:var(--danger)">⚠ ${e.message}</td></tr>`;
+    }
+  }
+
+  function renderTable(users) {
+    const tbody = document.getElementById('users-tbody');
+    document.getElementById('count-badge').textContent = `${users.length} usuário${users.length !== 1 ? 's' : ''}`;
+    if (!users.length) {
+      tbody.innerHTML = '<tr class="state-row"><td colspan="4">Nenhum usuário encontrado.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td class="id-cell">#${u.id}</td>
+        <td class="username-cell">${esc(u.username)}</td>
+        <td class="path-cell" title="${esc(u.caminho_banco)}">${esc(u.caminho_banco)}</td>
+        <td class="actions-cell" style="justify-content:flex-end;">
+          <button class="btn btn-accent-ghost" onclick="openEditModal(${u.id})">✎ Editar</button>
+          <button class="btn btn-danger-ghost" onclick="confirmDelete(${u.id}, '${esc(u.username)}')">✕</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function filterTable() {
+    const q = document.getElementById('search').value.toLowerCase();
+    renderTable(allUsers.filter(u =>
+      u.username.toLowerCase().includes(q) ||
+      u.caminho_banco.toLowerCase().includes(q) ||
+      String(u.id).includes(q)
+    ));
+  }
+
+  function openCreateModal() {
+    editingId = null;
+    document.getElementById('modal-title').textContent = 'Novo usuário';
+    document.getElementById('modal-subtitle').textContent = 'Preencha os dados do novo usuário';
+    document.getElementById('senha-label').textContent = 'Senha';
+    document.getElementById('modal-username').value = '';
+    document.getElementById('modal-senha').value = '';
+    document.getElementById('modal-caminho').value = '';
+    document.getElementById('modal-senha').placeholder = 'Mínimo 6 caracteres';
+    document.getElementById('modal-error').classList.remove('show');
+    document.getElementById('user-modal').classList.add('open');
+    setTimeout(() => document.getElementById('modal-username').focus(), 100);
+  }
+
+  function openEditModal(id) {
+    const u = allUsers.find(x => x.id === id);
+    if (!u) return;
+    editingId = id;
+    document.getElementById('modal-title').textContent = 'Editar usuário';
+    document.getElementById('modal-subtitle').textContent = `Editando #${u.id} — ${u.username}`;
+    document.getElementById('senha-label').textContent = 'Nova senha (deixe em branco para manter)';
+    document.getElementById('modal-username').value = u.username;
+    document.getElementById('modal-senha').value = '';
+    document.getElementById('modal-caminho').value = u.caminho_banco;
+    document.getElementById('modal-senha').placeholder = 'Deixe em branco para não alterar';
+    document.getElementById('modal-error').classList.remove('show');
+    document.getElementById('user-modal').classList.add('open');
+    setTimeout(() => document.getElementById('modal-username').focus(), 100);
+  }
+
+  function closeModal() { document.getElementById('user-modal').classList.remove('open'); }
+
+  async function saveUser() {
+    const username = document.getElementById('modal-username').value.trim();
+    const senha = document.getElementById('modal-senha').value;
+    const caminho_banco = document.getElementById('modal-caminho').value.trim();
+    const btn = document.getElementById('btn-save');
+    document.getElementById('modal-error').classList.remove('show');
+    if (!username) { showModalError('Username é obrigatório.'); return; }
+    if (!editingId && !senha) { showModalError('Senha é obrigatória para novos usuários.'); return; }
+    if (!caminho_banco) { showModalError('Caminho do banco é obrigatório.'); return; }
+    btn.disabled = true; btn.textContent = 'Salvando...';
+    try {
+      let res;
+      if (editingId) {
+        const body = { username, caminho_banco };
+        if (senha) body.senha = senha;
+        res = await fetch(`${API}/users/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body)
+        });
+      } else {
+        res = await fetch(`${API}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ username, senha, caminho_banco })
+        });
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Erro ao salvar');
+      closeModal();
+      showToast(editingId ? 'Usuário atualizado com sucesso' : 'Usuário criado com sucesso', 'success');
+      loadUsers();
+    } catch (e) { showModalError(e.message); }
+    finally { btn.disabled = false; btn.textContent = 'Salvar'; }
+  }
+
+  function showModalError(msg) {
+    const el = document.getElementById('modal-error');
+    el.textContent = msg; el.classList.add('show');
+  }
+
+  let deleteTarget = null;
+  function confirmDelete(id, username) {
+    deleteTarget = id;
+    document.getElementById('confirm-username').textContent = username;
+    document.getElementById('confirm-overlay').classList.add('open');
+    document.getElementById('btn-confirm-delete').onclick = async () => { closeConfirm(); await deleteUser(id); };
+  }
+  function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('open'); deleteTarget = null; }
+  async function deleteUser(id) {
+    try {
+      const res = await fetch(`${API}/users/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.detail || 'Erro ao remover'); }
+      showToast('Usuário removido com sucesso', 'success');
+      loadUsers();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  function showToast(msg, type = 'success') {
+    const container = document.getElementById('toasts');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<span class="toast-dot"></span><span>${msg}</span>`;
+    container.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => el.remove(), 300); }, 3000);
+  }
+
+  function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeConfirm(); } });
+</script>
+</body>
+</html>

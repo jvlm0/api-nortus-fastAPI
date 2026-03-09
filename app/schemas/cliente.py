@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 class ClienteCreate(BaseModel):
+    tipoPessoa: str
     nome: str
     telefone: Optional[str] = None
     cpfcnpj: Optional[str] = None

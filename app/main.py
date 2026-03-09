@@ -3,6 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 from app.routes.clientes import router as clientes_router
 from app.routes.veiculos import router as veiculos_router
 from app.routes.ordens import router as ordens_router
@@ -18,7 +19,7 @@ app = FastAPI()
 
 # Garante que o diretório de uploads existe antes de montar os arquivos estáticos
 os.makedirs("uploads/temp", exist_ok=True)
-app.mount("/static/uploads", StaticFiles(directory="uploads"), name="uploads")
+os.makedirs("static", exist_ok=True)
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,3 +38,13 @@ app.include_router(vendedores_router)
 app.include_router(equipes_router)
 app.include_router(produtos_router)
 app.include_router(uploads_router)
+
+
+@app.get("/admin", include_in_schema=False)
+def admin_redirect():
+    return RedirectResponse(url="/static/admin_users.html")
+
+
+# Montagem de arquivos estáticos (deve vir após os routers)
+app.mount("/static/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/static", StaticFiles(directory="static"), name="static")

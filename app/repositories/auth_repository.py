@@ -7,7 +7,7 @@ def buscar_usuario_login(username: str, senha: str):
     with get_app_pool().connection() as conn:
         cursor = conn.cursor()
         try:
-            sql = "SELECT ID, USERNAME, SENHA_HASH FROM USUARIO WHERE USERNAME = ?"
+            sql = "SELECT ID, USERNAME, SENHA_HASH, IS_ADMIN FROM USUARIO WHERE USERNAME = ?"
             cursor.execute(sql, (username,))
             resultado = cursor.fetchone()
 
@@ -19,7 +19,8 @@ def buscar_usuario_login(username: str, senha: str):
 
             return {
                 "sub": str(resultado[0]),
-                "username": resultado[1]
+                "username": resultado[1],
+                "is_admin": bool(resultado[3])
             }
         finally:
             cursor.close()
