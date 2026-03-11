@@ -23,11 +23,20 @@ def inserir_veiculo(dsn: str, veiculo: VeiculoCreate):
         cursor = conn.cursor()
         try:
             sql = """
-                INSERT INTO equipamento (PLACA, COD_CLIENTE, DESCRICAO, ANO, KMATUAL)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO equipamento (PLACA, COD_CLIENTE, DESCRICAO, ANO, KMATUAL, MARCA, MODELO, COR, CHASSI)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING COD_EQUIPAMENTO
             """
-            cursor.execute(sql, (veiculo.placa, veiculo.cod_cliente, veiculo.modelo, veiculo.ano, veiculo.kmatual))
+            desc = f"{veiculo.marca}/{veiculo.modelo}"
+            cursor.execute(sql, (veiculo.placa, 
+                                 veiculo.cod_cliente, 
+                                 desc, 
+                                 veiculo.ano, 
+                                 veiculo.kmatual,
+                                 veiculo.marca,
+                                 veiculo.modelo,
+                                 veiculo.cor,
+                                 veiculo.chassi))
             cod_veiculo = cursor.fetchone()[0]
             conn.commit()
             return cod_veiculo

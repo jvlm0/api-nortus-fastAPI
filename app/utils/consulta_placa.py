@@ -23,7 +23,7 @@ async def consulta_placa(placa: str) -> VeiculoCreate | None:
             ano=result.get("ano"),
             cor=result.get("cor"),
             chassi=chassi or None,
-            marca=result.get("marca")
+            marca=result.get("MARCA")
         )
 
     except httpx.HTTPError as e:
