@@ -5,6 +5,7 @@ from datetime import datetime
 
 from app.database import get_client_pool
 from app.utils.texto import tem_letra
+from app.schemas.cliente import ClienteCreate
 
 
 def buscar_cliente(dsn: str, page: int, page_size: int, q: str):
@@ -82,27 +83,55 @@ def buscar_cliente(dsn: str, page: int, page_size: int, q: str):
             cursor.close()
 
 
-def inserir_cliente(dsn: str, cliente):
+def inserir_cliente(dsn: str, cliente: ClienteCreate):
 
     with get_client_pool(dsn).connection() as conn:
         cursor = conn.cursor()
 
         try:
+
+
+            if (cliente.tipoPessoa == "PF"):
+                sql = """
+                    UPDATE codigo SET cod_pessoa = cod_pessoa + 1, cod_cliente = cod_cliente + 1, cod_pessoaf = cod_pessoaf + 1
+                    RETURNING cod_pessoa, cod_cliente, cod_pessoaf
+                """
+            else:
+                sql = """
+                    UPDATE codigo SET cod_pessoa = cod_pessoa + 1, cod_cliente = cod_cliente + 1, cod_pessoaj = cod_pessoaj + 1
+                    RETURNING cod_pessoa, cod_cliente, cod_pessoaj
+                """
+            cursor.execute(sql)
+            row = cursor.fetchone()
+            cod_pessoa = row[0]
+            cod_cliente = row[1]
+            cod_tipo_pessoa = row[2]
+
             sql = """
-                INSERT INTO pessoa (NOME, TELREL, CPFCNPJ)
-                VALUES (?, ?, ?)
-                RETURNING COD_PESSOA
+                INSERT INTO pessoa (COD_PESSOA, NOME, TELREL, CPFCNPJ)
+                VALUES (?, ?, ?, ?)
             """
-            cursor.execute(sql, (cliente.nome, cliente.telefone, cliente.cpfcnpj))
-            cod_pessoa = cursor.fetchone()[0]
+            cursor.execute(sql, (cod_pessoa, cliente.nome, cliente.telefone, cliente.cpfcnpj))
 
             sql2 = """
-                INSERT INTO CLIENTE (COD_PESSOA, data_cad, ATIVO)
-                VALUES (?, ?, 1)
+                INSERT INTO CLIENTE (COD_CLIENTE, COD_PESSOA, data_cad, ATIVO)
+                VALUES (?, ?, ?, 1)
                 RETURNING COD_CLIENTE
             """
 
-            cursor.execute(sql2, (cod_pessoa, datetime.now().date()))
+
+            if (cliente.tipoPessoa.upper() == "PF"):
+                sql_t = """
+                    INSERT INTO pessoaf (cod_pessoaf, cod_pessoa) values (?,?)
+                """
+            else:
+                sql_t = """
+                    INSERT INTO pessoaj (cod_pessoaj, cod_pessoa) values (?,?)
+                """
+    
+            cursor.execute(sql_t, (cod_tipo_pessoa, cod_pessoa))
+
+            cursor.execute(sql2, (cod_cliente, cod_pessoa, datetime.now().date()))
             cod_cliente = cursor.fetchone()[0]
 
 

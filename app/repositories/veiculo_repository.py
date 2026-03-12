@@ -22,13 +22,24 @@ def inserir_veiculo(dsn: str, veiculo: VeiculoCreate):
     with get_client_pool(dsn).connection() as conn:
         cursor = conn.cursor()
         try:
+
             sql = """
-                INSERT INTO equipamento (PLACA, COD_CLIENTE, DESCRICAO, ANO, KMATUAL, MARCA, MODELO, COR, CHASSI)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                RETURNING COD_EQUIPAMENTO
+                  UPDATE codigo SET cod_equipamento = cod_equipamento + 1
+
+                  returning cod_equipamento
+            """
+
+            cursor.execute(sql)
+
+            cod_veiculo = cursor.fetchone()[0]
+
+            sql = """
+                INSERT INTO equipamento (cod_equipamento, PLACA, COD_CLIENTE, DESCRICAO, ANO, KMATUAL, MARCA, MODELO, COR, CHASSI)
+                VALUES (?,?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             desc = f"{veiculo.marca}/{veiculo.modelo}"
-            cursor.execute(sql, (veiculo.placa, 
+            cursor.execute(sql, (cod_veiculo,
+                                 veiculo.placa, 
                                  veiculo.cod_cliente, 
                                  desc, 
                                  veiculo.ano, 
@@ -37,7 +48,6 @@ def inserir_veiculo(dsn: str, veiculo: VeiculoCreate):
                                  veiculo.modelo,
                                  veiculo.cor,
                                  veiculo.chassi))
-            cod_veiculo = cursor.fetchone()[0]
             conn.commit()
             return cod_veiculo
         except Exception as e:
