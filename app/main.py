@@ -13,6 +13,8 @@ from app.routes.vendedores import router as vendedores_router
 from app.routes.equipes import router as equipes_router
 from app.routes.produtos import router as produtos_router
 from app.routes.uploads import router as uploads_router
+from app.routes.ct_pagar import router as ct_pagar_router
+from app.routes.ct_receber import router as ct_receber_router
 
 
 app = FastAPI()
@@ -38,6 +40,8 @@ app.include_router(vendedores_router)
 app.include_router(equipes_router)
 app.include_router(produtos_router)
 app.include_router(uploads_router)
+app.include_router(ct_pagar_router)
+app.include_router(ct_receber_router)
 
 
 @app.get("/admin", include_in_schema=False)
