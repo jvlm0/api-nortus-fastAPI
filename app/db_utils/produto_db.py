@@ -66,7 +66,26 @@ def inserir_produtos(cursor, produtos: List[ItemProdutoCreate], cod_ordem: int, 
                   RETURNING COD_ITPRODORD
             """
 
-            cursor.execute(sql, (cod_estoque, cod_ordem, prod.quantidade, prod.valorUnitario, prod.desconto, valor_total, data, prod.cods_vendedores[0], val_custo, coef_div, val_comp, luc_moe, luc_per, val_rep, comissao, operacao, icms, base_icms, valor_icms, cod_cst))
+            cursor.execute(sql, (cod_estoque, 
+                                 cod_ordem, 
+                                 prod.quantidade, 
+                                 prod.valorUnitario, 
+                                 prod.desconto, 
+                                 valor_total, 
+                                 data, 
+                                 prod.cods_vendedores[0], 
+                                 val_custo, 
+                                 coef_div, 
+                                 val_comp, 
+                                 luc_moe, 
+                                 luc_per, 
+                                 val_rep, 
+                                 comissao, 
+                                 operacao, 
+                                 icms, 
+                                 base_icms, 
+                                 valor_icms, 
+                                 cod_cst))
 
 
             cod_itprodord = cursor.fetchone()[0]
