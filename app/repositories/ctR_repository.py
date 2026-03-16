@@ -4,7 +4,7 @@ from typing import List
 from decimal import Decimal, ROUND_HALF_UP
 
 
-def list_ct_a_receber(dsn: str) -> CtReceberResponse:
+def list_ct_a_receber(dsn: str, data_inicio, data_fim) -> CtReceberResponse:
 
     with get_client_pool(dsn).connection() as conn:
         cursor = conn.cursor()
@@ -24,10 +24,12 @@ def list_ct_a_receber(dsn: str) -> CtReceberResponse:
                     ON p2.COD_CTARECEBER = c.COD_CTARECEBER
                     AND p2.DTDEBITO IS NULL
                 WHERE c.VALOR > 0
+                  AND c.DTLANC >= ?
+                  AND c.DTLANC <= ?
                 ORDER BY c.DTLANC DESC
             """
 
-            cursor.execute(sql_ct)
+            cursor.execute(sql_ct, (data_inicio.strftime("%Y-%m-%d"), data_fim.strftime("%Y-%m-%d")))
             rows = cursor.fetchall()
 
             contas: List[CtReceber] = [

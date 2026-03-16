@@ -44,6 +44,7 @@ class ComissaoFuncionario(BaseModel):
 # ---------- Resposta geral ----------
 
 class ComissoesResponse(BaseModel):
-    dias: int
+    data_inicio: date
+    data_fim: date
     total_geral: float
     funcionarios: List[ComissaoFuncionario]

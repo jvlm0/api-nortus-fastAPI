@@ -6,7 +6,7 @@ from app.schemas.comissao import (
     ComissoesResponse,
 )
 from decimal import Decimal, ROUND_HALF_UP
-from datetime import date, timedelta
+from datetime import date
 from collections import defaultdict
 
 
@@ -16,9 +16,9 @@ def _to_float(value) -> float:
     return float(Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
-def listar_comissoes(dsn: str, dias: int) -> ComissoesResponse:
-    data_inicio: date = date.today() - timedelta(days=dias)
+def listar_comissoes(dsn: str, data_inicio: date, data_fim: date) -> ComissoesResponse:
     data_inicio_str = data_inicio.strftime("%Y-%m-%d")
+    data_fim_str = data_fim.strftime("%Y-%m-%d")
 
     with get_client_pool(dsn).connection() as conn:
         cursor = conn.cursor()
@@ -51,8 +51,9 @@ def listar_comissoes(dsn: str, dias: int) -> ComissoesResponse:
                   AND i.DATA IS NOT NULL
                   AND o.DTFECH IS NOT NULL
                   AND i.DATA >= ?
+                  AND i.DATA <= ?
             """
-            cursor.execute(sql_produtos, (data_inicio_str,))
+            cursor.execute(sql_produtos, (data_inicio_str, data_fim_str))
             rows_produtos = cursor.fetchall()
 
             # ----------------------------------------------------------------
@@ -80,8 +81,9 @@ def listar_comissoes(dsn: str, dias: int) -> ComissoesResponse:
                   AND d.VLRFINAL > 0
                   AND o.DTFECH IS NOT NULL
                   AND o.DTFECH >= ?
+                  AND o.DTFECH <= ?
             """
-            cursor.execute(sql_servicos, (data_inicio_str,))
+            cursor.execute(sql_servicos, (data_inicio_str, data_fim_str))
             rows_servicos = cursor.fetchall()
 
         finally:
@@ -158,7 +160,8 @@ def listar_comissoes(dsn: str, dias: int) -> ComissoesResponse:
     resultado.sort(key=lambda f: f.total_comissao, reverse=True)
 
     return ComissoesResponse(
-        dias=dias,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
         total_geral=float(total_geral.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
         funcionarios=resultado,
     )
