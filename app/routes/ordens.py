@@ -4,7 +4,8 @@ from typing import List, Optional
 
 from fastapi.concurrency import run_in_threadpool
 from app.repositories import ordem_repository
-from app.schemas.ordem import OrdemCreate, OrdemUpdate, OrdemResponsePaginated, OrdemResponse
+from app.schemas.ordem import OrdemCreate, OrdemUpdate, OrdemResponsePaginated, OrdemResponse, OrdensFechadasResponse
+from datetime import date
 from app.utils.auth import verificar_token
 from app.utils.db_utils import get_user_db
 from app.utils.imagens_utils import salvar_imagens_ordem, listar_imagens_ordem, remover_imagens_ordem
@@ -103,6 +104,17 @@ async def update_ordem(
     resposta["imagens"] = imagens_salvas
 
     return resposta
+
+
+@router.get("/fechadas", response_model=OrdensFechadasResponse)
+async def listar_ordens_fechadas(
+    data_inicio: date = Query(..., description="Data inicial do intervalo (YYYY-MM-DD)"),
+    data_fim: date = Query(..., description="Data final do intervalo (YYYY-MM-DD)"),
+    token: dict = Depends(verificar_token),
+):
+    usuario_id = int(token.get("sub"))
+    dsn = await run_in_threadpool(get_user_db, usuario_id)
+    return await run_in_threadpool(ordem_repository.listar_ordens_fechadas, dsn, data_inicio, data_fim)
 
 
 @router.get("/{cod_ordem}", response_model=OrdemResponse)

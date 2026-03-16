@@ -6,8 +6,7 @@ from app.db_utils.produto_db import buscar_produtos, deletar_produtos, inserir_p
 from app.db_utils.servico_db import buscar_servicos, inserir_servicos, deletar_servicos, get_count_serv_ordem, deletar_servicos_ordem
 from datetime import datetime
 from app.schemas.cliente import ClienteResponse
-from app.schemas.ordem import OrdemResponse, OrdemCreate, OrdemUpdate, ProblemaOrdem
-from app.schemas.ordem import OrdemResponse
+from app.schemas.ordem import OrdemResponse, OrdemCreate, OrdemUpdate, ProblemaOrdem, OrdemFechadaResponse, OrdensFechadasResponse
 from app.schemas.veiculo import VeiculoResponse
 from app.utils.ordem_calc import calculaTotal
 from app.utils.ordem_utils import split_obs, recuperar_problemas, formatar_problemas
@@ -294,6 +293,84 @@ def get_count_itens(dsn, cod_ordem):
             return count
         finally:
                 cursor.close()
+
+
+def listar_ordens_fechadas(dsn: str, data_inicio, data_fim) -> OrdensFechadasResponse:
+    from datetime import date
+    from decimal import Decimal, ROUND_HALF_UP
+
+    data_inicio_str = data_inicio.strftime("%Y-%m-%d")
+    data_fim_str = data_fim.strftime("%Y-%m-%d")
+
+    with get_client_pool(dsn).connection() as conn:
+        cursor = conn.cursor()
+        try:
+            sql = """
+                SELECT
+                    o.COD_ORDEM,
+                    o.OBSORDEM,
+                    o.DTFECH,
+                    o.TOTORD,
+                    cliente.COD_CLIENTE,
+                    pessoa.NOME,
+                    pessoa.TELREL,
+                    pessoa.CPFCNPJ,
+                    equipamento.COD_EQUIPAMENTO,
+                    equipamento.DESCRICAO,
+                    equipamento.PLACA,
+                    equipamento.ANO,
+                    equipamento.KMATUAL
+                FROM ORDEM o
+                LEFT JOIN CLIENTE cliente ON o.COD_CLIENTE = cliente.COD_CLIENTE
+                LEFT JOIN PESSOA pessoa ON cliente.COD_PESSOA = pessoa.COD_PESSOA
+                LEFT JOIN EQUIPAMENTO equipamento ON o.COD_EQUIPAMENTO = equipamento.COD_EQUIPAMENTO
+                WHERE o.STATUS = 'FECHADO'
+                  AND o.DTFECH >= ?
+                  AND o.DTFECH <= ?
+                ORDER BY o.DTFECH DESC
+            """
+            cursor.execute(sql, (data_inicio_str, data_fim_str))
+            rows = cursor.fetchall()
+
+            ordens: list[OrdemFechadaResponse] = []
+            soma = Decimal("0")
+
+            for r in rows:
+                total = float(Decimal(str(r[3])).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)) if r[3] else 0.0
+                soma += Decimal(str(r[3])) if r[3] else Decimal("0")
+
+                ordens.append(
+                    OrdemFechadaResponse(
+                        cod_ordem=r[0],
+                        observacao=r[1],
+                        data_fechamento=r[2],
+                        total_ordem=total,
+                        cliente=ClienteResponse(
+                            COD_PESSOA=r[4],
+                            nome=r[5],
+                            telefone=r[6],
+                            cpfcnpj=r[7],
+                        ),
+                        veiculo=VeiculoResponse(
+                            cod_veiculo=r[8],
+                            modelo=r[9],
+                            placa=r[10],
+                            ano=r[11],
+                            kmatual=r[12],
+                        ),
+                    )
+                )
+
+            return OrdensFechadasResponse(
+                data_inicio=data_inicio_str,
+                data_fim=data_fim_str,
+                total_ordens=len(ordens),
+                soma_total=float(soma.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+                data=ordens,
+            )
+
+        finally:
+            cursor.close()
         
 
                 

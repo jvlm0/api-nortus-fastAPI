@@ -51,3 +51,20 @@ class OrdemResponsePaginated(BaseModel):
     page_size: int
     total_pages: int
     data: List[OrdemResponse]
+
+
+class OrdemFechadaResponse(BaseModel):
+    cod_ordem: int
+    observacao: Optional[str] = None
+    data_fechamento: Optional[datetime] = None
+    total_ordem: Optional[float] = None
+    cliente: ClienteResponse
+    veiculo: VeiculoResponse
+
+
+class OrdensFechadasResponse(BaseModel):
+    data_inicio: str
+    data_fim: str
+    total_ordens: int
+    soma_total: float
+    data: List[OrdemFechadaResponse]
