@@ -27,28 +27,32 @@ def listar_comissoes(dsn: str, data_inicio: date, data_fim: date) -> ComissoesRe
             # 1. Comissões de PRODUTOS (ITPRODORD)
             # ----------------------------------------------------------------
             sql_produtos = """
-                SELECT
-                    c.COD_COMPROD,
-                    c.PERCENTO,
-                    i.TOTAL * c.PERCENTO / 100 AS valor_comissao,
-                    i.COD_ITPRODORD,
-                    s.DESCRICAO,
-                    i.TOTAL,
-                    c.COD_FUNCIONARIO,
-                    p.NOME AS nome_funcionario,
-                    i.DATA,
-                    o.COD_ORDEM,
-                    o.OBSORDEM
+                SELECT  c.COD_COMPROD, 
+                		c.PERCENTO,
+                		i.TOTAL * c.PERCENTO/100 AS valor_comissao, 
+                		i.COD_ITPRODORD, 
+                		s.DESCRICAO,
+                		i.TOTAL, 
+                		c.COD_FUNCIONARIO, 
+                		p.NOME AS nome_funcionario, 
+                		i.DATA, 
+                		o.COD_ORDEM, 
+                		o.OBSORDEM,
+                		pc.NOME AS nome_cliente,
+                   	 	eq.PLACA,
+                    	eq.DESCRICAO AS modelo
                 FROM COMPROD c
                 INNER JOIN ITPRODORD i ON i.COD_ITPRODORD = c.COD_GERADOR
                 LEFT JOIN ESTOQUE e ON e.COD_ESTOQUE = i.COD_ESTOQUE
                 LEFT JOIN SUBPRODUTO s ON s.COD_SUBPRODUTO = e.COD_SUBPROD
-                INNER JOIN FUNCIONARIO f ON f.COD_FUNC = c.COD_FUNCIONARIO
-                INNER JOIN PESSOA p ON p.COD_PESSOA = f.COD_PESSOA
+                INNER JOIN funcionario f ON f.COD_FUNC = c.COD_FUNCIONARIO
+                INNER JOIN PESSOA p ON p.COD_PESSOA  = f.COD_PESSOA 
                 INNER JOIN ORDEM o ON o.COD_ORDEM = i.COD_ORDEM
-                WHERE i.TOTAL IS NOT NULL
-                  AND i.TOTAL > 0
-                  AND i.DATA IS NOT NULL
+                INNER JOIN CLIENTE cl ON cl.COD_CLIENTE = o.COD_CLIENTE
+                INNER JOIN PESSOA pc ON pc.COD_PESSOA = cl.COD_PESSOA
+                INNER JOIN EQUIPAMENTO eq  ON eq.COD_EQUIPAMENTO  = o.COD_EQUIPAMENTO
+                WHERE i.total > 0 
+                  AND i.DATA IS NOT NULL 
                   AND o.DTFECH IS NOT NULL
                   AND i.DATA >= ?
                   AND i.DATA <= ?
@@ -60,25 +64,30 @@ def listar_comissoes(dsn: str, data_inicio: date, data_fim: date) -> ComissoesRe
             # 2. Comissões de SERVIÇOS (DESPADIC)
             # ----------------------------------------------------------------
             sql_servicos = """
-                SELECT
+                SELECT 
                     c.COD_COMPROD,
                     c.PERCENTO,
                     d.VLRTOTFIN * c.PERCENTO / 100 AS valor_comissao,
-                    d.COD_DESPADIC,
-                    d.DESPESA AS descricao,
-                    d.VLRTOTFIN AS total,
-                    c.COD_FUNCIONARIO,
-                    p.NOME AS nome_funcionario,
-                    o.DTFECH AS data,
-                    o.COD_ORDEM,
-                    o.OBSORDEM
+                    d.COD_DESPADIC, 
+                    d.DESPESA AS descricao, 
+                    d.VLRTOTFIN AS total, 
+                    c.COD_FUNCIONARIO, 
+                    p.NOME AS nome_funcionario, 
+                    o.DTFECH AS data, 
+                    o.COD_ORDEM, 
+                    o.OBSORDEM,
+                    pc.NOME AS nome_cliente,
+                    e.PLACA,
+                    e.DESCRICAO AS modelo
                 FROM COMPROD c
                 INNER JOIN DESPADIC d ON d.COD_DESPADIC = c.COD_GERADOR
-                INNER JOIN FUNCIONARIO f ON f.COD_FUNC = c.COD_FUNCIONARIO
+                INNER JOIN funcionario f ON f.COD_FUNC = c.COD_FUNCIONARIO
                 INNER JOIN PESSOA p ON p.COD_PESSOA = f.COD_PESSOA
                 INNER JOIN ORDEM o ON o.COD_ORDEM = d.COD_GERADOR
-                WHERE d.VLRTOTFIN IS NOT NULL
-                  AND d.VLRFINAL > 0
+                INNER JOIN CLIENTE cl ON cl.COD_CLIENTE = o.COD_CLIENTE
+                INNER JOIN PESSOA pc ON pc.COD_PESSOA = cl.COD_PESSOA
+                INNER JOIN EQUIPAMENTO e  ON e.COD_EQUIPAMENTO  = o.COD_EQUIPAMENTO
+                WHERE d.VLRTOTFIN > 0
                   AND o.DTFECH IS NOT NULL
                   AND o.DTFECH >= ?
                   AND o.DTFECH <= ?
@@ -114,6 +123,9 @@ def listar_comissoes(dsn: str, data_inicio: date, data_fim: date) -> ComissoesRe
                 data=row[8],
                 cod_ordem=row[9],
                 obs_ordem=row[10],
+                nome_cliente=row[11],
+                placa_veiculo=row[12],
+                modelo_veiculo=row[13]
             )
         )
 
@@ -133,6 +145,9 @@ def listar_comissoes(dsn: str, data_inicio: date, data_fim: date) -> ComissoesRe
                 data=row[8],
                 cod_ordem=row[9],
                 obs_ordem=row[10],
+                nome_cliente=row[11],
+                placa_veiculo=row[12],
+                modelo_veiculo=row[13]
             )
         )
 

@@ -15,6 +15,9 @@ class ComissaoProduto(BaseModel):
     data: Optional[date] = None
     cod_ordem: int
     obs_ordem: Optional[str] = None
+    nome_cliente: Optional[str] = None
+    placa_veiculo: Optional[str] = None
+    modelo_veiculo: Optional[str] = None
 
 
 class ComissaoServico(BaseModel):
@@ -27,7 +30,9 @@ class ComissaoServico(BaseModel):
     data: Optional[date] = None
     cod_ordem: int
     obs_ordem: Optional[str] = None
-
+    nome_cliente: Optional[str] = None
+    placa_veiculo: Optional[str] = None
+    modelo_veiculo: Optional[str] = None
 
 # ---------- Agrupamento por funcionário ----------
 
