@@ -1,7 +1,6 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
-from typing import List
 
 from app.schemas.cliente import ClienteResponse
 from app.schemas.veiculo import VeiculoResponse
@@ -13,6 +12,7 @@ class ProblemaOrdem(BaseModel):
     descricao: str
     solucao: Optional[str] = None
 
+
 class OrdemCreate(BaseModel):
     observacao: Optional[str] = None
     cod_veiculo: int
@@ -22,7 +22,7 @@ class OrdemCreate(BaseModel):
     problemas: Optional[List[ProblemaOrdem]] = None
 
 
-class OrdemUpdate(BaseModel): 
+class OrdemUpdate(BaseModel):
     cod_ordem: int
     observacao: Optional[str] = None
     cod_veiculo: Optional[int] = None
@@ -43,15 +43,17 @@ class OrdemResponse(BaseModel):
     servicos: Optional[List[ServicoResponse]] = None
     produtos: Optional[List[ItemProdutoResponse]] = None
     problemas: Optional[List[ProblemaOrdem]] = None
-    imagens: Optional[List[str]] = None  # URLs definitivas das imagens salvas
+    imagens: Optional[List[str]] = None
 
-    
+
 class OrdemResponsePaginated(BaseModel):
     page: int
     page_size: int
     total_pages: int
     data: List[OrdemResponse]
 
+
+# ---------- Ordens Fechadas ----------
 
 class OrdemFechadaResponse(BaseModel):
     cod_ordem: int
@@ -68,3 +70,23 @@ class OrdensFechadasResponse(BaseModel):
     total_ordens: int
     soma_total: float
     data: List[OrdemFechadaResponse]
+
+
+# ---------- Ordens Faturadas ----------
+
+class OrdemFaturadaResponse(BaseModel):
+    cod_docfiscord: int
+    cod_ordem: int
+    total: float
+    observacao: Optional[str] = None
+    nome_cliente: str
+    placa: Optional[str] = None
+    modelo: Optional[str] = None
+
+
+class OrdensFaturadasResponse(BaseModel):
+    data_inicio: str
+    data_fim: str
+    total_ordens: int
+    soma_total: float
+    data: List[OrdemFaturadaResponse]

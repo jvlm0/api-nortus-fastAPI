@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from fastapi.concurrency import run_in_threadpool
 from app.repositories import ordem_repository
-from app.schemas.ordem import OrdemCreate, OrdemUpdate, OrdemResponsePaginated, OrdemResponse, OrdensFechadasResponse
+from app.schemas.ordem import OrdemCreate, OrdemUpdate, OrdemResponsePaginated, OrdemResponse, OrdensFechadasResponse, OrdensFaturadasResponse
 from datetime import date
 from app.utils.auth import verificar_token
 from app.utils.db_utils import get_user_db
@@ -115,6 +115,17 @@ async def listar_ordens_fechadas(
     usuario_id = int(token.get("sub"))
     dsn = await run_in_threadpool(get_user_db, usuario_id)
     return await run_in_threadpool(ordem_repository.listar_ordens_fechadas, dsn, data_inicio, data_fim)
+
+
+@router.get("/faturadas", response_model=OrdensFaturadasResponse)
+async def listar_ordens_faturadas(
+    data_inicio: date = Query(..., description="Data inicial do intervalo (YYYY-MM-DD)"),
+    data_fim: date = Query(..., description="Data final do intervalo (YYYY-MM-DD)"),
+    token: dict = Depends(verificar_token),
+):
+    usuario_id = int(token.get("sub"))
+    dsn = await run_in_threadpool(get_user_db, usuario_id)
+    return await run_in_threadpool(ordem_repository.listar_ordens_faturadas, dsn, data_inicio, data_fim)
 
 
 @router.get("/{cod_ordem}", response_model=OrdemResponse)

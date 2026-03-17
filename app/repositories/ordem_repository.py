@@ -6,7 +6,7 @@ from app.db_utils.produto_db import buscar_produtos, deletar_produtos, inserir_p
 from app.db_utils.servico_db import buscar_servicos, inserir_servicos, deletar_servicos, get_count_serv_ordem, deletar_servicos_ordem
 from datetime import datetime
 from app.schemas.cliente import ClienteResponse
-from app.schemas.ordem import OrdemResponse, OrdemCreate, OrdemUpdate, ProblemaOrdem, OrdemFechadaResponse, OrdensFechadasResponse
+from app.schemas.ordem import OrdemResponse, OrdemCreate, OrdemUpdate, ProblemaOrdem, OrdemFechadaResponse, OrdensFechadasResponse, OrdemFaturadaResponse, OrdensFaturadasResponse, OrdemFaturadaResponse, OrdensFaturadasResponse, OrdemFaturadaResponse, OrdensFaturadasResponse
 from app.schemas.veiculo import VeiculoResponse
 from app.utils.ordem_calc import calculaTotal
 from app.utils.ordem_utils import split_obs, recuperar_problemas, formatar_problemas
@@ -67,6 +67,67 @@ def inserir_ordem(dsn: str, ordem: OrdemCreate):
             cursor.close()
 
 
+def listar_ordens_faturadas(dsn: str, data_inicio, data_fim) -> OrdensFaturadasResponse:
+    from decimal import Decimal, ROUND_HALF_UP
+
+    data_inicio_str = data_inicio.strftime("%Y-%m-%d")
+    data_fim_str = data_fim.strftime("%Y-%m-%d")
+
+    with get_client_pool(dsn).connection() as conn:
+        cursor = conn.cursor()
+        try:
+            sql = """
+                SELECT
+                    d.COD_DOCFISCORD,
+                    d.COD_ORDEM,
+                    COALESCE(d.VLRTOTPROD, 0) + COALESCE(d.VLRTOTSERV, 0) AS total,
+                    o.OBSORDEM,
+                    pc.NOME AS nome_cliente,
+                    e.PLACA,
+                    e.DESCRICAO AS modelo,
+                    o.DTFECH
+                FROM DOCFISORD d
+                INNER JOIN ORDEM o ON o.COD_ORDEM = d.COD_ORDEM
+                INNER JOIN CLIENTE cl ON cl.COD_CLIENTE = o.COD_CLIENTE
+                INNER JOIN PESSOA pc ON pc.COD_PESSOA = cl.COD_PESSOA
+                INNER JOIN EQUIPAMENTO e ON e.COD_EQUIPAMENTO = o.COD_EQUIPAMENTO
+                WHERE (COALESCE(d.VLRTOTPROD, 0) + COALESCE(d.VLRTOTSERV, 0)) > 0
+                  AND o.DTFECH >= ?
+                  AND o.DTFECH <= ?
+                ORDER BY o.DTFECH DESC
+            """
+            cursor.execute(sql, (data_inicio_str, data_fim_str))
+            rows = cursor.fetchall()
+
+            ordens: list[OrdemFaturadaResponse] = []
+            soma = Decimal("0")
+
+            for r in rows:
+                total = float(Decimal(str(r[2])).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+                soma += Decimal(str(r[2]))
+
+                ordens.append(
+                    OrdemFaturadaResponse(
+                        cod_docfiscord=r[0],
+                        cod_ordem=r[1],
+                        total=total,
+                        observacao=r[3],
+                        nome_cliente=r[4] or "",
+                        placa=r[5],
+                        modelo=r[6],
+                    )
+                )
+
+            return OrdensFaturadasResponse(
+                data_inicio=data_inicio_str,
+                data_fim=data_fim_str,
+                total_ordens=len(ordens),
+                soma_total=float(soma.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+                data=ordens,
+            )
+
+        finally:
+            cursor.close()
 
 
 def listar_ordens(dsn: str, page: int, page_size: int):
@@ -371,6 +432,3 @@ def listar_ordens_fechadas(dsn: str, data_inicio, data_fim) -> OrdensFechadasRes
 
         finally:
             cursor.close()
-        
-
-                
