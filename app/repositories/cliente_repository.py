@@ -1,11 +1,8 @@
-
-
-
 from datetime import datetime
 
 from app.database import get_client_pool
 from app.utils.texto import tem_letra
-from app.schemas.cliente import ClienteCreate
+from app.schemas.cliente import ClienteCreate, ClienteUpdate
 
 
 def buscar_cliente(dsn: str, page: int, page_size: int, q: str):
@@ -137,6 +134,43 @@ def inserir_cliente(dsn: str, cliente: ClienteCreate):
 
             return cod_cliente
             
+
+        except Exception as e:
+            conn.rollback()
+            raise e
+
+        finally:
+            cursor.close()
+
+
+def atualizar_cliente(dsn: str, cod_cliente: int, cliente: ClienteUpdate):
+
+    with get_client_pool(dsn).connection() as conn:
+        cursor = conn.cursor()
+
+        try:
+            # Verifica se o cliente existe e está ativo, obtendo o COD_PESSOA
+            cursor.execute(
+                "SELECT COD_PESSOA FROM CLIENTE WHERE COD_CLIENTE = ? AND ATIVO = 1",
+                (cod_cliente,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+            cod_pessoa = row[0]
+
+            # COALESCE: se o valor recebido for NULL, mantém o valor atual do banco
+            sql = """
+                UPDATE PESSOA SET
+                    NOME    = COALESCE(?, NOME),
+                    TELREL  = COALESCE(?, TELREL),
+                    CPFCNPJ = COALESCE(?, CPFCNPJ)
+                WHERE COD_PESSOA = ?
+            """
+            cursor.execute(sql, (cliente.nome, cliente.telefone, cliente.cpfcnpj, cod_pessoa))
+
+            return cod_cliente
 
         except Exception as e:
             conn.rollback()
