@@ -18,11 +18,11 @@ def criar_usuario(usuario):
 
             cursor.execute(
                 """
-                INSERT INTO USUARIO (USERNAME, SENHA_HASH, CAMINHO_BANCO)
-                VALUES (?, ?, ?)
+                INSERT INTO USUARIO (USERNAME, NOME, SENHA_HASH, CAMINHO_BANCO)
+                VALUES (?, ?, ?, ?)
                 RETURNING ID
                 """,
-                (usuario.username, senha_hash, usuario.caminho_banco)
+                (usuario.username, usuario.nome, senha_hash, usuario.caminho_banco)
             )
 
             user_id = cursor.fetchone()[0]
@@ -30,6 +30,7 @@ def criar_usuario(usuario):
             return {
                 "id": user_id,
                 "username": usuario.username,
+                "nome": usuario.nome,
                 "caminho_banco": usuario.caminho_banco
             }
 
@@ -47,9 +48,9 @@ def listar_usuarios():
     with get_app_pool().connection() as conn:
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT ID, USERNAME, CAMINHO_BANCO FROM USUARIO ORDER BY ID")
+            cursor.execute("SELECT ID, USERNAME, NOME, CAMINHO_BANCO FROM USUARIO ORDER BY ID")
             rows = cursor.fetchall()
-            return [{"id": r[0], "username": r[1], "caminho_banco": r[2]} for r in rows]
+            return [{"id": r[0], "username": r[1], "nome": r[2], "caminho_banco": r[3]} for r in rows]
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
         finally:
@@ -61,13 +62,13 @@ def buscar_usuario(user_id: int):
         cursor = conn.cursor()
         try:
             cursor.execute(
-                "SELECT ID, USERNAME, CAMINHO_BANCO FROM USUARIO WHERE ID = ?",
+                "SELECT ID, USERNAME, NOME, CAMINHO_BANCO FROM USUARIO WHERE ID = ?",
                 (user_id,)
             )
             row = cursor.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="Usuário não encontrado")
-            return {"id": row[0], "username": row[1], "caminho_banco": row[2]}
+            return {"id": row[0], "username": row[1], "nome": row[2], "caminho_banco": row[3]}
         except HTTPException:
             raise
         except Exception as e:
@@ -81,7 +82,7 @@ def atualizar_usuario(user_id: int, dados):
         cursor = conn.cursor()
         try:
             cursor.execute(
-                "SELECT ID, USERNAME, CAMINHO_BANCO FROM USUARIO WHERE ID = ?",
+                "SELECT ID, USERNAME, NOME, CAMINHO_BANCO FROM USUARIO WHERE ID = ?",
                 (user_id,)
             )
             row = cursor.fetchone()
@@ -89,7 +90,8 @@ def atualizar_usuario(user_id: int, dados):
                 raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
             novo_username = dados.username if dados.username is not None else row[1]
-            novo_caminho = dados.caminho_banco if dados.caminho_banco is not None else row[2]
+            novo_nome = dados.nome if dados.nome is not None else row[2]
+            novo_caminho = dados.caminho_banco if dados.caminho_banco is not None else row[3]
 
             if dados.username and dados.username != row[1]:
                 cursor.execute(
@@ -103,16 +105,16 @@ def atualizar_usuario(user_id: int, dados):
                 from app.utils.security import hash_password
                 nova_senha_hash = hash_password(dados.senha)
                 cursor.execute(
-                    "UPDATE USUARIO SET USERNAME = ?, CAMINHO_BANCO = ?, SENHA_HASH = ? WHERE ID = ?",
-                    (novo_username, novo_caminho, nova_senha_hash, user_id)
+                    "UPDATE USUARIO SET USERNAME = ?, NOME = ?, CAMINHO_BANCO = ?, SENHA_HASH = ? WHERE ID = ?",
+                    (novo_username, novo_nome, novo_caminho, nova_senha_hash, user_id)
                 )
             else:
                 cursor.execute(
-                    "UPDATE USUARIO SET USERNAME = ?, CAMINHO_BANCO = ? WHERE ID = ?",
-                    (novo_username, novo_caminho, user_id)
+                    "UPDATE USUARIO SET USERNAME = ?, NOME = ?, CAMINHO_BANCO = ? WHERE ID = ?",
+                    (novo_username, novo_nome, novo_caminho, user_id)
                 )
 
-            return {"id": user_id, "username": novo_username, "caminho_banco": novo_caminho}
+            return {"id": user_id, "username": novo_username, "nome": novo_nome, "caminho_banco": novo_caminho}
 
         except HTTPException:
             conn.rollback()

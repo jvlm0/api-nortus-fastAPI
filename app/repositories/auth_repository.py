@@ -7,11 +7,11 @@ def buscar_usuario_login(username: str, senha: str):
     with get_app_pool().connection() as conn:
         cursor = conn.cursor()
         try:
-            sql = "SELECT ID, USERNAME, SENHA_HASH, IS_ADMIN FROM USUARIO WHERE USERNAME = ?"
+            sql = "SELECT ID, USERNAME, NOME, SENHA_HASH, IS_ADMIN FROM USUARIO WHERE USERNAME = ?"
             cursor.execute(sql, (username,))
             resultado = cursor.fetchone()
 
-            if not resultado or not verify_password(senha, resultado[2]):
+            if not resultado or not verify_password(senha, resultado[3]):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Usuário ou senha incorretos"
@@ -20,7 +20,8 @@ def buscar_usuario_login(username: str, senha: str):
             return {
                 "sub": str(resultado[0]),
                 "username": resultado[1],
-                "is_admin": bool(resultado[3])
+                "nome": resultado[2],
+                "is_admin": bool(resultado[4])
             }
         finally:
             cursor.close()

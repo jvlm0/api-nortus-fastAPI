@@ -30,6 +30,7 @@ async def login(credenciais: LoginRequest):
         "refresh_token": refresh_token,
         "token_type": "bearer",
         "usuario": data["username"],
+        "nome": data["nome"],
         "is_admin": data["is_admin"]
     }
 
