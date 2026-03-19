@@ -24,9 +24,9 @@ class ProdutoResponse(BaseModel):
 
 class ItemProdutoResponse(BaseModel):
     cod_itemProduto: int
-    nome: str
-    marca: str
-    quantidade: Decimal
-    valorUnitario: Decimal
-    desconto: Decimal
+    nome: Optional[str] = None
+    marca: Optional[str] = None
+    quantidade: Optional[Decimal] = None
+    valorUnitario: Optional[Decimal] = None
+    desconto: Optional[Decimal] = None
     vendedores: List[Vendedor]

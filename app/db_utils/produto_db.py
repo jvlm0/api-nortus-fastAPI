@@ -141,11 +141,11 @@ def buscar_produtos(cursor, cod_ordem: int):
 
         prod =  ItemProdutoResponse(
                         cod_itemProduto= r[0],
-                        nome=r[1],
-                        marca=r[2],
-                        quantidade=r[3],
-                        desconto=r[4],
-                        valorUnitario=r[5],
+                        nome=r[1] if r[1] is not None else "",
+                        marca=r[2] if r[2] is not None else "",
+                        quantidade=r[3] if r[3] is not None else 0,
+                        desconto=r[4] if r[4] is not None else 0,
+                        valorUnitario=r[5] if r[5] is not None else 0,
                         vendedores=vendedores)
         
         produtos.append(prod)

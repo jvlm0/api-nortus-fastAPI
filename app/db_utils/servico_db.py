@@ -94,9 +94,9 @@ def buscar_servicos(cursor, cod_ordem):
         serv = ServicoResponse(
                              cod_servico=r[0],
                              descricao=r[1],
-                             quantidade=r[2],
-                             valorUnitario=r[3],
-                             desconto=r[4],
+                             quantidade=r[2] if r[2] is not None else 0,
+                             valorUnitario=r[3] if r[3] is not None else 0,
+                             desconto=r[4] if r[4] is not None else 0,
                              equipe=equipe,
                              vendedores=vendedores
         )

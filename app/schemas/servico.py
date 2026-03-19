@@ -24,8 +24,8 @@ class ServicoCreate(BaseModel):
 class ServicoResponse(BaseModel):
     cod_servico: int
     descricao: str
-    quantidade: Decimal
-    valorUnitario: Decimal
-    desconto: Decimal
+    quantidade: Optional[Decimal] = None
+    valorUnitario: Optional[Decimal] = None
+    desconto: Optional[Decimal] = None
     equipe: EquipeResponsavel
     vendedores: List[Vendedor]
