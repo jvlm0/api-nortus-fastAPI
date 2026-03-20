@@ -11,52 +11,56 @@ from app.schemas.veiculo import VeiculoResponse
 from app.utils.ordem_calc import calculaTotal
 from app.utils.ordem_utils import split_obs, recuperar_problemas, formatar_problemas
 
-def inserir_ordem(dsn: str, ordem: OrdemCreate): 
+def inserir_ordem(dsn: str, ordem: OrdemCreate):
     with get_client_pool(dsn).connection() as conn:
         cursor = conn.cursor()
 
         dt = datetime.now()
-
         data = dt.strftime("%Y-%m-%d")
         hora = dt.strftime("%H:%M:%S")
-        
-        STATUS = "ABERTO"
+
+        STATUS  = "ABERTO"
         MONITOR = "INICIADO"
-        COD_LOJA = 1 
+        COD_LOJA = 1
 
         texto_problema, texto_solucao = None, None
-        if (ordem.problemas is not None):
+        if ordem.problemas is not None:
             texto_problema, texto_solucao = formatar_problemas(ordem.problemas)
 
-
         try:
-
             valorTotal, valorTotalServ, valorTotalProd = calculaTotal(ordem.servicos, ordem.produtos)
-            
 
             cod_funcionario = None
             if valorTotalProd > 0:
                 cod_funcionario = ordem.produtos[0].cods_vendedores[0]
             elif valorTotalServ > 0:
                 cod_funcionario = ordem.servicos[0].cods_vendedores[0]
-            
 
-            sql = """
-                INSERT INTO ORDEM (COD_CLIENTE, COD_EQUIPAMENTO, DTABERT, HRABERT, OBSORDEM, STATUS, MONITOR, COD_LOJA, TOTSERV, TOTORD, TOTPROD, COD_VENDEDOR, PROBREC, SOLUCAO)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            cursor.execute(
+                """
+                INSERT INTO ORDEM (
+                    COD_CLIENTE, COD_EQUIPAMENTO, DTABERT, HRABERT, OBSORDEM,
+                    STATUS, MONITOR, COD_LOJA, TOTSERV, TOTORD, TOTPROD,
+                    COD_VENDEDOR, PROBREC, SOLUCAO
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING COD_ORDEM
-            """
-            cursor.execute(sql, (ordem.cod_cliente, ordem.cod_veiculo, data, hora, ordem.observacao, STATUS, MONITOR, COD_LOJA, valorTotalServ, valorTotal, valorTotalProd, cod_funcionario, texto_problema, texto_solucao))
+                """,
+                (
+                    ordem.cod_cliente, ordem.cod_veiculo, data, hora,
+                    ordem.observacao, STATUS, MONITOR, COD_LOJA,
+                    valorTotalServ, valorTotal, valorTotalProd,
+                    cod_funcionario, texto_problema, texto_solucao
+                )
+            )
             cod_ordem = cursor.fetchone()[0]
 
-            if (ordem.servicos != None):
+            if ordem.servicos is not None:
                 inserir_servicos(cursor, ordem.servicos, cod_ordem)
-            if ordem.produtos != None:
+            if ordem.produtos is not None:
                 inserir_produtos(cursor, ordem.produtos, cod_ordem, data)
 
-
-
-
+            # Commit explícito antes de sair para liberar locks o mais cedo possível
+            conn.commit()
             return cod_ordem
 
         except Exception as e:

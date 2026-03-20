@@ -190,20 +190,20 @@ class PooledConnection:
             return
 
         if exc_type is not None:
-            # Houve exceção: faz rollback e decide se devolve ou descarta
+            # Houve exceção: tenta rollback (pode já ter sido feito no repositório)
             try:
                 self.conn.rollback()
             except Exception:
-                pass  # conexão pode já estar morta
-
-            self.pool.release(self.conn)
+                pass
         else:
+            # Commit seguro: se o repositório já comitou, o Firebird ignora
+            # um commit numa transação limpa (sem ops pendentes), então é idempotente.
             try:
                 self.conn.commit()
             except Exception:
                 pass
-            self.pool.release(self.conn)
 
+        self.pool.release(self.conn)
         self.conn = None
 
 

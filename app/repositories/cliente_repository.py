@@ -86,54 +86,74 @@ def inserir_cliente(dsn: str, cliente: ClienteCreate):
         cursor = conn.cursor()
 
         try:
-
-
-            if (cliente.tipoPessoa == "PF"):
-                sql = """
-                    UPDATE codigo SET cod_pessoa = cod_pessoa + 1, cod_cliente = cod_cliente + 1, cod_pessoaf = cod_pessoaf + 1
-                    RETURNING cod_pessoa, cod_cliente, cod_pessoaf
+            # EXECUTE BLOCK atomicamente incrementa e retorna os códigos.
+            # Por rodar como uma única instrução no servidor, o Firebird
+            # serializa o acesso sem deixar janela entre SELECT e UPDATE,
+            # eliminando o deadlock por UPDATE concorrente na tabela codigo.
+            if cliente.tipoPessoa == "PF":
+                sql_seq = """
+                    EXECUTE BLOCK RETURNS (o_pessoa INT, o_cliente INT, o_tipo INT)
+                    AS BEGIN
+                        UPDATE codigo
+                        SET cod_pessoa  = cod_pessoa  + 1,
+                            cod_cliente = cod_cliente + 1,
+                            cod_pessoaf = cod_pessoaf + 1;
+                        SELECT cod_pessoa, cod_cliente, cod_pessoaf
+                        FROM codigo
+                        INTO :o_pessoa, :o_cliente, :o_tipo;
+                        SUSPEND;
+                    END
                 """
             else:
-                sql = """
-                    UPDATE codigo SET cod_pessoa = cod_pessoa + 1, cod_cliente = cod_cliente + 1, cod_pessoaj = cod_pessoaj + 1
-                    RETURNING cod_pessoa, cod_cliente, cod_pessoaj
+                sql_seq = """
+                    EXECUTE BLOCK RETURNS (o_pessoa INT, o_cliente INT, o_tipo INT)
+                    AS BEGIN
+                        UPDATE codigo
+                        SET cod_pessoa  = cod_pessoa  + 1,
+                            cod_cliente = cod_cliente + 1,
+                            cod_pessoaj = cod_pessoaj + 1;
+                        SELECT cod_pessoa, cod_cliente, cod_pessoaj
+                        FROM codigo
+                        INTO :o_pessoa, :o_cliente, :o_tipo;
+                        SUSPEND;
+                    END
                 """
-            cursor.execute(sql)
+
+            cursor.execute(sql_seq)
             row = cursor.fetchone()
-            cod_pessoa = row[0]
-            cod_cliente = row[1]
+            cod_pessoa      = row[0]
+            cod_cliente     = row[1]
             cod_tipo_pessoa = row[2]
 
-            sql = """
-                INSERT INTO pessoa (COD_PESSOA, NOME, TELREL, CPFCNPJ)
-                VALUES (?, ?, ?, ?)
-            """
-            cursor.execute(sql, (cod_pessoa, cliente.nome, cliente.telefone, cliente.cpfcnpj))
+            cursor.execute(
+                "INSERT INTO pessoa (COD_PESSOA, NOME, TELREL, CPFCNPJ) VALUES (?, ?, ?, ?)",
+                (cod_pessoa, cliente.nome, cliente.telefone, cliente.cpfcnpj)
+            )
 
-            sql2 = """
+            if cliente.tipoPessoa.upper() == "PF":
+                cursor.execute(
+                    "INSERT INTO pessoaf (cod_pessoaf, cod_pessoa) VALUES (?, ?)",
+                    (cod_tipo_pessoa, cod_pessoa)
+                )
+            else:
+                cursor.execute(
+                    "INSERT INTO pessoaj (cod_pessoaj, cod_pessoa) VALUES (?, ?)",
+                    (cod_tipo_pessoa, cod_pessoa)
+                )
+
+            cursor.execute(
+                """
                 INSERT INTO CLIENTE (COD_CLIENTE, COD_PESSOA, data_cad, ATIVO)
                 VALUES (?, ?, ?, 1)
                 RETURNING COD_CLIENTE
-            """
-
-
-            if (cliente.tipoPessoa.upper() == "PF"):
-                sql_t = """
-                    INSERT INTO pessoaf (cod_pessoaf, cod_pessoa) values (?,?)
-                """
-            else:
-                sql_t = """
-                    INSERT INTO pessoaj (cod_pessoaj, cod_pessoa) values (?,?)
-                """
-    
-            cursor.execute(sql_t, (cod_tipo_pessoa, cod_pessoa))
-
-            cursor.execute(sql2, (cod_cliente, cod_pessoa, datetime.now().date()))
+                """,
+                (cod_cliente, cod_pessoa, datetime.now().date())
+            )
             cod_cliente = cursor.fetchone()[0]
 
-
+            # Commit explícito para liberar o lock da tabela codigo imediatamente
+            conn.commit()
             return cod_cliente
-            
 
         except Exception as e:
             conn.rollback()

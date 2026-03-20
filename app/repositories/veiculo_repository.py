@@ -22,37 +22,42 @@ def inserir_veiculo(dsn: str, veiculo: VeiculoCreate):
     with get_client_pool(dsn).connection() as conn:
         cursor = conn.cursor()
         try:
-
-            sql = """
-                  UPDATE codigo SET cod_equipamento = cod_equipamento + 1
-
-                  returning cod_equipamento
-            """
-
-            cursor.execute(sql)
-
+            # EXECUTE BLOCK atomicamente incrementa e retorna o código,
+            # eliminando a janela entre SELECT e UPDATE que causava deadlock.
+            cursor.execute(
+                """
+                EXECUTE BLOCK RETURNS (o_equipamento INT)
+                AS BEGIN
+                    UPDATE codigo SET cod_equipamento = cod_equipamento + 1;
+                    SELECT cod_equipamento FROM codigo INTO :o_equipamento;
+                    SUSPEND;
+                END
+                """
+            )
             cod_veiculo = cursor.fetchone()[0]
 
-            sql = """
-                INSERT INTO equipamento (cod_equipamento, PLACA, COD_CLIENTE, DESCRICAO, ANO, KMATUAL, MARCA, MODELO, COR, CHASSI)
-                VALUES (?,?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """
             desc = f"{veiculo.marca}/{veiculo.modelo}"
-            cursor.execute(sql, (cod_veiculo,
-                                 veiculo.placa, 
-                                 veiculo.cod_cliente, 
-                                 desc, 
-                                 veiculo.ano, 
-                                 veiculo.kmatual,
-                                 veiculo.marca,
-                                 veiculo.modelo,
-                                 veiculo.cor,
-                                 veiculo.chassi))
+            cursor.execute(
+                """
+                INSERT INTO equipamento (
+                    cod_equipamento, PLACA, COD_CLIENTE, DESCRICAO,
+                    ANO, KMATUAL, MARCA, MODELO, COR, CHASSI
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    cod_veiculo, veiculo.placa, veiculo.cod_cliente, desc,
+                    veiculo.ano, veiculo.kmatual, veiculo.marca,
+                    veiculo.modelo, veiculo.cor, veiculo.chassi
+                )
+            )
+
             conn.commit()
             return cod_veiculo
+
         except Exception as e:
             conn.rollback()
             raise e
+
         finally:
             cursor.close()
 
